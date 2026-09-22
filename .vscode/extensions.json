@@ -1,0 +1,8 @@
+{
+	"recommendations": [
+		"njpwerner.autodocstring",
+		"davidanson.vscode-markdownlint",
+		"charliermarsh.ruff",
+		"astral-sh.ty",
+	]
+}

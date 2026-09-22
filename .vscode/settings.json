@@ -1,0 +1,16 @@
+{
+	"files.exclude": {
+		"**/__pycache__": true
+	},
+	"files.autoSave": "afterDelay",
+	"launch": {
+		"configurations": [],
+		"compounds": []
+	},
+	"editor.rulers": [
+		80
+	],
+	"git.autofetch": true,
+	"files.trimTrailingWhitespace": true,
+	"editor.renderWhitespace": "boundary",
+}

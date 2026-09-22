@@ -1,0 +1,439 @@
+<h2 class="hd hd-2 unit-title">Actividad: Sockets orientados a conexión con Stop &amp; Wait</h2>
+<div class="bookmark-button-wrapper">
+ <button class="btn btn-link bookmark-button" aria-pressed="false"
+  data-bookmark-id="Hector_Bonilla,block-v1:eol+DCC-CC4303_v1+2026_2_2+type@vertical+block@f8eacc98da1745b9a26918fbe5608328"
+  data-bookmarks-api-url="/api/bookmarks/v1/bookmarks/">
+  <span class="bookmark-text">Marcar esta página</span>
+ </button>
+</div>
+<div class="vert-mod">
+ <div class="vert vert-0"
+  data-id="block-v1:eol+DCC-CC4303_v1+2026_2_2+type@html+block@39f3943c5590451ebb6e6213ce22da70">
+
+  <div class="xblock xblock-student_view xblock-student_view-html xmodule_display xmodule_HtmlBlock xblock-initialized"
+   data-course-id="course-v1:eol+DCC-CC4303_v1+2026_2_2" data-init="XBlockToXModuleShim" data-runtime-class="LmsRuntime"
+   data-runtime-version="1" data-block-type="html"
+   data-usage-id="block-v1:eol+DCC-CC4303_v1+2026_2_2+type@html+block@39f3943c5590451ebb6e6213ce22da70"
+   data-request-token="454e15a0b61711f1a4f2f624105736f2" data-graded="True" data-has-score="False">
+
+   <p><span style="background-color: #fcf2fc;"><span
+      style="font-family: 'Open Sans', Verdana, Arial, Helvetica, sans-serif;">En esta actividad
+      <strong>implementaremos sockets orientados a conexión</strong>&nbsp;usando solo <strong><em>sockets&nbsp;UDP
+       </em>y&nbsp;<em>Stop &amp; Wait</em></strong></span><span
+      style="font-family: 'Open Sans', Verdana, Arial, Helvetica, sans-serif;">. Para ello u</span>sted
+     deberá&nbsp;implementar un emisor, un receptor y la clase <strong><span
+       style="font-family: 'courier new', courier;">socketTCP</span></strong>.&nbsp;</span></p>
+   <p><strong><span style="background-color: #fcf9ae;">Todas las actividades durante el semestre <span
+       style="text-decoration: underline;">deben estar en un repositorio de github</span> al cuál el equipo
+      docente pueda acceder para su revisión, en u-cursos solo tendrá que subir el archivo pdf de su
+      informe/documentación.</span></strong></p>
+   <p>A continuación veremos&nbsp;algunos de los&nbsp;conceptos que necesitaremos saber para realizar esta
+    actividad.&nbsp;<span style="text-decoration: underline;">Para esta actividad</span>&nbsp;además necesitará del
+    material provisto en el&nbsp;<strong>video: TCP, UDP y Stop &amp; Wait.</strong>&nbsp;</p>
+   <p><strong>Puntaje:</strong>&nbsp;<strong>4.5 pts código + 1.5 pts informe</strong></p>
+   <p style="font-size: 16px;"><strong>El desglose de puntaje por funcionalidad del código es el siguiente (Si su
+     código pasa las <em>Pruebas</em> debería cumplir con los puntos mencionados aquí):</strong></p>
+   <ul>
+    <li>(+1.0) El handshake funciona correctamente</li>
+    <li>(+1.0) El&nbsp;cierre funciona correctamente</li>
+    <li>(+2.5) Las funciones <strong><span style="font-family: 'courier new', courier;">send</span></strong> y
+     <strong><span style="font-family: 'courier new', courier;">recv</span></strong> funcionan
+     correctamente&nbsp;(esto incluye manejo de pérdidas)
+    </li>
+   </ul>
+   <h3><strong>Antes de&nbsp;comenzar</strong></h3>
+   <ul>
+    <ul>
+     <li><strong><span style="background-color: #f0ffb8;">Stop &amp; Wait: </span></strong>El protocolo de control
+      de errores <em>Stop &amp; Wait</em> es utilizado para asegurarse de que los paquetes enviados por el emisor
+      lleguen al receptor, realizando reenvíos de paquetes&nbsp;en caso de que alguno se pierda. En <em>Stop &amp;
+       Wait</em>, cuando el emisor envía un paquete, este se queda esperando a que el receptor le confirme que
+      dicho paquete llegó&nbsp;mediante un mensaje <span style="font-family: 'andale mono', times;">ACK</span>.
+      Una vez el emisor recibe el mensaje <span style="font-family: 'andale mono', times;">ACK</span> del
+      receptor, este procede a enviar el siguiente paquete de información. El emisor esperará el mensaje <span
+       style="font-family: 'andale mono', times;">ACK</span> por un periodo de tiempo que llamaremos
+      '<em>timeou</em>t', en caso de no recibir el mensaje <span style="font-family: 'andale mono', times;">ACK</span>
+      que esperaba dentro del periodo de timeout, el
+      emisor reenviará el paquete al receptor.</li>
+     <li><span style="background-color: #f0ffb8;"><strong>Simular pérdida y delay
+        (netem):&nbsp;&nbsp;</strong></span>Para testear el comportamiento de una red bajo pérdida de mensajes
+      y/o retardo&nbsp;en el tiempo de envío de dichos mensajes (o&nbsp;<em>delay</em>)&nbsp;podemos usar <span
+       style="font-family: 'andale mono', times;">netem</span>. Para ejecutar <span
+       style="font-family: 'andale mono', times;">netem</span> en <em>localhost</em> use el siguiente comando
+      <pre
+       style="background-color: #2b2b2b; color: #a9b7c6; font-family: 'Menlo'; font-size: 0.85em;"> % sudo tc qdisc add dev lo root netem loss [% de pérdida] delay [tiempo de delay]</pre>
+      Para detener la pérdida de&nbsp;mensajes pueden usar:
+      <pre
+       style="background-color: #2b2b2b; color: #a9b7c6; font-family: 'Menlo'; font-size: 0.85em;"> % sudo tc qdisc del dev lo root netem</pre>
+     </li>
+     <li><strong><span style="background-color: #f0ffb8;">Simulando pérdidas a mano (sin netem):</span></strong> En
+      el módulo de sockets (semana 1) se provee código para simular pérdidas a mano en caso de <strong>no</strong>
+      poder utilizar <em>netem</em>.&nbsp; <span style="text-decoration: underline;">Si no cuenta con un sistema
+       operativo que le permita usar <em>netem</em>, deberá implementar pérdidas a mano.</span></li>
+    </ul>
+   </ul>
+   <p></p>
+   <h3><strong>Actividad</strong></h3>
+   <p>Para esa actividad deberá programar una clase <span
+     style="font-family: 'courier new', courier;"><strong>socketTCP</strong></span> la cual implementará sockets
+    orientados a conexión&nbsp;usando<strong> Stop &amp; Wait</strong>. Esta clase&nbsp;deberá funcionar
+    de&nbsp;forma similar a los sockets orientados a conexión de python. <strong>Además</strong> usted deberá
+    implementar un&nbsp;cliente y un servidor que usen&nbsp;objetos tipo&nbsp;<strong
+     style="font-family: 'courier new', courier;">socketTCP</strong><span style="font-size: 1em;">&nbsp;para
+     comunicarse</span><span style="font-family: 'andale mono', times;"><span
+      style="font-family: 'Open Sans', Verdana, Arial, Helvetica, sans-serif;">.
+      Su&nbsp;clase&nbsp;</span></span><strong style="font-family: 'courier new', courier;">socketTCP</strong><span
+     style="font-family: 'andale mono', times;"><span
+      style="font-family: 'Open Sans', Verdana, Arial, Helvetica, sans-serif;">&nbsp;deberá utilizar sockets <span
+       style="font-family: 'andale mono', times;">UDP</span>&nbsp;para enviar la información,<span
+       style="text-decoration: underline;"><strong> por lo que su tarea será implementar <span
+         style="font-family: 'courier new', courier;">TCP</span>&nbsp;simplificado con Stop &amp;
+        Wait</strong></span> incluyendo <strong>timeouts</strong>, <strong>mensajes <span
+        style="font-family: 'courier new', courier;">ACK</span></strong>, etc</span></span><span
+     style="font-family: 'andale mono', times;"><span
+      style="font-family: 'Open Sans', Verdana, Arial, Helvetica, sans-serif;">.&nbsp;</span></span><span
+     style="font-size: 1em;">&nbsp;Su&nbsp;cliente debe ser capaz de enviar&nbsp;un archivo a&nbsp;la dirección
+    </span><strong><span style="font-family: 'courier new', courier;">(IP, Puerto)</span></strong><span
+     style="font-size: 1em;">&nbsp;donde se encuentre escuchando el servidor. Por ejemplo, si queremos enviar el
+     archivo <span style="font-family: 'courier new', courier;"><strong>'</strong></span></span><span
+     style="font-family: 'courier new', courier;"><strong>archivo.txt</strong></span><span style="font-size: 1em;"><span
+      style="font-family: 'courier new', courier;"><strong>'</strong></span> a la
+     dirección '</span><strong><span style="font-family: 'courier new', courier;">(localhost,
+      8000)</span></strong><span style="font-size: 1em;">' veríamos algo como:</span></p>
+   <pre
+    style="background-color: #2b2b2b; color: #a9b7c6; font-family: 'Menlo'; font-size: 0.85em;"> % python3 cliente.py localhost 8000 &lt; archivo.txt</pre>
+   <p>Dado que los programas implementan comunicación confiable, se espera que el&nbsp;archivo sea recibido por el
+    programa receptor de manera íntegra.</p>
+   <p><span
+     style="caret-color: #000000; color: #000000; font-family: 'Open Sans', Verdana, Arial, Helvetica, sans-serif; font-size: medium; -webkit-text-size-adjust: auto;"><strong>Para
+      probar su implementación</strong> defina que el máximo tamaño de paquete (sin incluir headers) es de&nbsp;16
+     bytes, por lo tanto cualquier comunicación que supere esa cantidad de bytes debe ser dividida en múltiples
+     paquetes. Se sugiere cargar todo el archivo a memoria y usarlo como un arreglo de bytes para dividirlo más
+     fácilmente en paquetes.&nbsp;</span>Recuerde que usted debe implementar comunicación confiable&nbsp;junto a
+    todo lo que necesite, como timeouts y mensajes ACK.&nbsp;</p>
+   <p><strong>Los pasos a seguir son:</strong></p>
+   <ol>
+    <li>Cree un cliente y un servidor <strong>provisorios</strong>&nbsp;que se comuniquen <span
+      style="text-decoration: underline;">con sockets <span
+       style="font-family: 'andale mono', times;">UDP</span></span><span
+      style="font-family: 'andale mono', times;">&nbsp;</span>(no se consideran en la entrega final, no se
+     esfuerce demasiado). El&nbsp;cliente debe leer un archivo cuya ubicación o ruta se recibe desde <em>entrada
+      estándar</em>&nbsp;(usando la función <strong><span
+       style="font-family: 'courier new', courier;">input</span></strong> de python). Luego, el cliente debe
+     enviar los contenidos de este archivo al receptor en&nbsp;trozos&nbsp;de a lo más&nbsp;16 bytes. El servidor
+     debe recibir los mensajes desde el&nbsp;cliente e imprimir el&nbsp;contenido del archivo en salida estándar.
+     Compruebe que el archivo se envió completamente, <strong>si bien en este punto no se ha implementado
+      comunicación confiable</strong>&nbsp;el envío de mensajes pequeños&nbsp;dentro de localhost no debiese tener
+     pérdida.
+     <hr><strong>Test 1:</strong> <span style="background-color: #faf7f7;">Envíe un mensaje de largo mayor a 16 y
+      vea que todo llega sin pérdidas. Note que en este punto no tiene cómo saber el largo del mensaje, por lo que
+      está ok si su receptor se queda "pegado" esperando más mensajes una vez ya recibió
+      todo.</span><br><strong>Test 2:</strong> <span style="background-color: #faf7f7;">Repita la prueba, esta vez
+      induzca pérdida usando <span style="font-family: 'courier new', courier;"><strong>netem</strong></span>&nbsp;y vea
+      que ocurren
+      pérdidas. <span style="background-color: #faf19d;">Luego de probar su código <strong>recuerde detener las
+        pérdidas</strong> tal como se indica en la sección <em><strong>Antes de
+         comenzar.</strong></em></span>&nbsp;Si no puede utilizar <span
+       style="font-family: 'courier new', courier;"><strong>netem</strong></span>, simule pérdidas como se indica
+      en la sección&nbsp;<strong><em>Material e Indicaciones</em></strong>&nbsp;en la <strong>actividad de
+       Sockets</strong>.</span>
+     <pre
+      style="background-color: #2b2b2b; color: #a9b7c6; font-family: 'Menlo'; font-size: 0.85em;"> % sudo tc qdisc add dev lo root netem loss 20.0% delay 0.5s</pre>
+     <hr>
+    </li>
+    <li>Ahora vamos a crear la clase&nbsp;&nbsp;<strong
+      style="font-family: 'courier new', courier;">SocketTCP</strong>&nbsp;(guarde la clase en un tercer archivo
+     <span style="text-decoration: underline;">distinto</span>&nbsp;al cliente y el servidor). <strong>El
+      constructor</strong> de esta clase deberá&nbsp;ser capaz de almacenar todos los recursos que va a necesitar
+     para la comunicación (socket UDP, dirección de destino, número de secuencia, <strong>todo lo que usted
+      considere necesario</strong>). Su constructor&nbsp;no debe recibir parámetros, es decir, se invoca como:<br>
+     <pre
+      style="background-color: #2b2b2b; color: #a9b7c6; font-family: 'Menlo'; font-size: 0.85em;"> mi_socket = SocketTCP()</pre>
+     <p style="background-color: #f2f0f0;"><strong>&gt;&gt;&gt;</strong> En la sección&nbsp;<em><strong>Material e
+        indicaciones para la actividad</strong></em>&nbsp;puede encontrar un ejemplo de cómo crear clases en
+      python.</p>
+    </li>
+    <li>
+     <p>Considerando headers&nbsp;<strong><span
+        style="font-family: 'courier new', courier;">TCP</span></strong>&nbsp;que contengan la información
+      necesaria para usar <em>Stop &amp; Wait</em> como se mostró en el video*,&nbsp;añada a su clase dos
+      funciones estáticas:&nbsp;<span style="font-family: 'courier new', courier;"><strong>parse_segment</strong></span>
+      que pueda pasar
+      segmentos TCP a alguna estructura de datos más cómoda y&nbsp;<span
+       style="font-family: 'courier new', courier;"><strong>create_segment</strong></span>&nbsp;que pueda crear
+      segmentos a partir de dicha estructura de datos. Para la estructura de sus headers TCP utilice bytes
+      directamente, note que la forma en que dichos bytes codifican la información necesaria para implementar su
+      TCP simplificado es parte de las decisiones de diseño que deberá tomar.<br>* Es decir: ACK, SYN, FIN y seq.
+     </p>
+     <hr>
+     <p><span style="background-color: #faf7f7;"><strong>Test:</strong> Modifique el código creado en el
+       <em><strong>paso 1</strong></em> para que el emisor&nbsp;le añada headers TCP a los datos antes de
+       enviarlos y haga que su receptor extraiga el contenido de los segmentos recibidos. Es decir, ahora cada
+       segmento enviado por el emisor comienza con un área de headers y luego continúa con el área de contenido
+       el cual contiene <span style="text-decoration: underline;">a lo más</span> 16 bytes. De esta forma, el
+       receptor deberá ser capaz de extraer el contenido del segmento para rearmar el mensaje original.</span>
+     </p>
+     <hr>
+    </li>
+    <li>Implemente <em>3-way handshake</em> para que el emisor le avise al receptor que va a&nbsp;comenzar el envío
+     de mensajes. Por ahora <strong>no</strong> se preocupe de manejar pérdidas. <strong>Para ello&nbsp;añada a la
+      clase&nbsp;<span style="font-family: 'courier new', courier;">socketTCP</span>&nbsp;las siguientes
+      funciones</strong>:<br>
+     <p style="background-color: #f2f0f0;"><span style="font-family: 'courier new', courier;"><strong>-
+        bind(address)</strong></span> : Función que se encarga de que el objeto&nbsp;<strong><span
+        style="font-family: 'courier new', courier;">socketTCP</span></strong>&nbsp;escuche en la dirección
+      <span style="font-family: 'courier new', courier;"><span
+        style="font-family: 'courier new', courier;"><strong>address.</strong></span></span>
+     </p>
+     <p style="background-color: #f2f0f0;"><span style="font-family: 'courier new', courier;"><span
+        style="font-family: 'courier new', courier;"><strong>- connect(address)</strong><span
+         style="font-family: 'Open Sans', Verdana, Arial, Helvetica, sans-serif;">: Función que inicia la
+         conexión desde un objeto&nbsp;<strong><span
+           style="font-family: 'courier new', courier;">socketTCP</span></strong>&nbsp;con otro que se
+         encuentra escuchando en la dirección&nbsp;<strong
+          style="font-family: 'courier new', courier;">address</strong>. Dentro de esta función deberá
+         implementar el lado del cliente del&nbsp;<em>3-way handshake</em>.&nbsp;Por simplicidad, haga que su
+         número de secuencia inicial sea elegido aleatoriamente entre 0 y
+         100.<strong><br></strong></span></span></span></p>
+     <p style="background-color: #f2f0f0;"><span style="font-family: 'courier new', courier;"><span
+        style="font-family: 'Open Sans', Verdana, Arial, Helvetica, sans-serif;"><strong></strong></span><strong>-&nbsp;accept()</strong></span>:
+      Función que se encuentra esperando una petición de tipo SYN. Dentro de esta función deberá implementar el
+      lado del&nbsp;servidor del&nbsp;<em>3-way handshake</em>. Si el handshake termina de forma exitosa,
+      <strong>esta función deberá retornar un nuevo</strong> objeto del tipo&nbsp;<strong><span
+        style="font-family: 'courier new', courier;">socketTCP</span></strong>&nbsp;<strong>junto a la
+       dirección</strong> donde se encuentra escuchando (bind) dicho
+      objeto.&nbsp;La&nbsp;<strong>dirección</strong> del <strong>nuevo socket</strong> debe ser<strong>
+       distinta</strong> a la del socket que llamó a <strong
+       style="font-family: 'courier new', courier;">accept()</strong>. Cuide que su nuevo socket esté
+      correctamente asociado a la nueva dirección y que recuerde los números de secuencia, pues es este nuevo
+      socket el que será utilizado&nbsp;posteriormente para enviar y recibir mensajes.
+     </p>
+     <hr><span style="background-color: #faf19d;"><strong>&gt;&gt; INDICACIÓN: </strong>Dibuje&nbsp;el diagrama del
+      <em>3-way Handshake&nbsp;</em>y asocie los pasos correspondientes a las funciones <span
+       style="font-family: 'courier new', courier;"><strong>connect</strong></span> y <strong><span
+        style="font-family: 'courier new', courier;">accept</span><span style="font-weight: normal;">.
+        <strong>Añada el diagrama a su informe final</strong>.</span>&nbsp;&lt;&lt;</strong></span><br><span
+      style="background-color: #faf7f7;"><strong>Test:</strong>&nbsp;Pruebe que su handshake funciona para ello
+      ejecute los siguientes códigos en su cliente y servidor. Recuerde que debe hacer <span
+       style="font-family: 'courier new', courier;"><strong>import</strong></span> de su clase SocketTCP. Por
+      ahora no es necesario que maneje pérdidas en el handshake.</span>
+     <pre
+      style="background-color: #2b2b2b; color: #a9b7c6; font-family: 'Menlo'; font-size: 0.85em;"><span style="color: #808080;"> # server</span> <br> server_socketTCP = SocketTCP.SocketTCP()<br> server_socketTCP.bind(address)<br> connection_socketTCP<span style="color: #cc7832;">, </span>new_address = server_socketTCP.accept()</pre>
+     <pre
+      style="background-color: #2b2b2b; color: #a9b7c6; font-family: 'Menlo'; font-size: 0.85em;"><span style="color: #808080;"> # client<br></span> client_socketTCP = SocketTCP.SocketTCP()<br> client_socketTCP.connect(address)</pre>
+     <hr>
+    </li>
+    <li>Implemente <em>Stop &amp; Wait</em>&nbsp;usando un timeout fijo definido por ustedes. Para ello aproveche la
+     función <span style="font-family: 'courier new', courier;"><strong>settimeout</strong></span> de los sockets
+     no orientados a conexión. <strong>Note que estos timeouts levantan errores al cumplirse el tiempo
+      límite</strong>. Su código debe <strong>manejar</strong> estos errores para saber cuándo debe retransmitir
+     un segmento (para ver cómo implementar un timeout vea&nbsp;<strong><em>Materiales e Indicaciones para la
+       actividad</em></strong>).&nbsp;<br><strong>Para&nbsp;implementar <em>Stop &amp; Wait</em>&nbsp;añada a la
+      clase&nbsp;<span style="font-family: 'courier new', courier;">socketTCP</span>&nbsp;las siguientes
+      funciones</strong>:
+     <p style="background-color: #f2f0f0;"><strong style="font-family: 'courier new', courier;">-
+       send(message)</strong><span style="font-family: 'Open Sans', Verdana, Arial, Helvetica, sans-serif;">:
+       Esta función será la encargada de manejar <em>Stop &amp; Wait</em> desde el lado del emisor tal como vimos
+       en la versión simplificada mostrada en el video. Su función <strong><span
+         style="font-family: 'courier new', courier;">send</span></strong> deberá encargarse de dividir el
+       mensaje <strong><span style="font-family: 'courier new', courier;">message</span></strong> en trozos de
+       tamaño máximo&nbsp;16 bytes. Para ello, use como guía el código provisorio que implementó en el
+       <strong><em>paso 1</em></strong>. <br>&nbsp; &nbsp; <br>&nbsp; &nbsp; Para evitar que el receptor espere
+       para siempre, <strong>haga que el primer&nbsp;segmento enviado por la función</strong> <strong><span
+         style="font-family: 'courier new', courier;">send</span></strong> le informe al receptor <strong>el
+        largo en <span style="text-decoration: underline;">bytes</span> del mensaje</strong>&nbsp;&nbsp;<strong
+        style="font-family: 'courier new', courier;">message</strong>&nbsp;que le va a enviar (<span
+        style="font-family: 'courier new', courier;"><strong>message_length = len(message)</strong></span>) y
+       luego, a partir del segundo segmento, comience a enviar el mensaje. &nbsp;<strong>Note</strong> que
+       <strong><span style="font-family: 'courier new', courier;">send</span></strong> <span
+        style="text-decoration: underline;">usa como número de secuencia inicial</span>&nbsp;el último número de
+       secuencia almacenado.<br><br></span></p>
+     <p style="background-color: #f2f0f0;"><strong><span style="font-family: 'courier new', courier;">-
+        recv(buff_size)</span></strong>:&nbsp;Esta función será la encargada de manejar&nbsp;<em>Stop &amp;
+       Wait</em><span style="color: #3c3c3c; font-family: 'Open Sans', Verdana, Arial, Helvetica, sans-serif;"><span
+        style="color: #3c3c3c; font-family: 'Open Sans', Verdana, Arial, Helvetica, sans-serif;">&nbsp;desde el
+        lado del&nbsp;receptor tal como vimos en la versión simplificada mostrada en el video.&nbsp;El
+        <strong>primer segmento</strong> que reciba esta función&nbsp;contendrá el largo en bytes del mensaje
+        que va a recibir desde el emisor <span
+         style="font-family: 'courier new', courier;"><strong>(message_length)</strong>.</span>&nbsp;Su función
+        <span style="font-family: 'courier new', courier;"><strong>recv</strong></span>&nbsp;debe retornar una
+        vez que el largo de los <strong>datos</strong> recibidos (sin contar el largo de los headers) sea igual
+        a <strong><span style="font-family: 'courier new', courier;">min(message_length, buff_size).<br><span
+           style="font-family: 'Open Sans', Verdana, Arial, Helvetica, sans-serif; font-weight: normal;"><span
+            style="text-decoration: underline;"><strong>&nbsp; &gt;&gt;&gt;Importante:</strong> </span>Note
+           que buff_size únicamente afecta el funcionamiento del socketTCP y no debería ser el mismo que el
+           buffer del socket UDP utilizado internamente. El socket UDP debería tener un tamaño de buffer fijo
+           igual al tamaño del header + 16.</span><br><br></span></strong>&nbsp; &nbsp;
+        Si&nbsp;&nbsp;<strong><span style="font-family: 'courier new', courier;">message_length &gt;
+          buff_size</span></strong> debe ser posible llamar a la función&nbsp;<strong><span
+          style="font-family: 'courier new', courier;">recv(buff_size)</span></strong>&nbsp;<span
+         style="text-decoration: underline;">las veces que sea necesario para recibir el resto del
+         mensaje</span>,&nbsp;<strong>una forma&nbsp;lograr esto</strong> es definir dentro de su constructor
+        una variable que le permita saber&nbsp;la cantidad de datos que aún no se han recibido. Si al llamar
+        a&nbsp;<strong><span style="font-family: 'courier new', courier;">recv</span></strong>&nbsp;dicha
+        variable es 0 se asume que&nbsp;<strong><span
+          style="font-family: 'courier new', courier;">recv</span></strong>&nbsp;está recién comenzando a
+        recibir datos y por lo tanto espera recibir el <span
+         style="font-family: 'courier new', courier;"><strong>message_length</strong>,</span>&nbsp;en caso
+        contrario se continúa recibiendo el mensaje <em>sin esperar un message_length</em>.<strong> Hay muchas
+         otras formas de lograr esto, elija la que más le acomode, la única condición es que debe retornar
+         apenas se cumpla que recibió </strong><strong
+         style="font-family: &quot;courier new&quot;, courier;">len(message_received) -&nbsp;<strong
+          style="font-family: &quot;Open Sans&quot;, Verdana, Arial, Helvetica, sans-serif;"><span
+           style="font-family: 'courier new', courier;">min(message_length,
+           buff_size)</span></strong>&nbsp;&gt;= 0</strong>.<br><br>&nbsp; &nbsp; Note que es posible que al
+        ocurrir el evento<span style="font-family: 'courier new', courier;"><strong> len(message_received) &gt;=
+          buff_size</strong></span> se encuentre con que <span
+         style="font-family: 'courier new', courier;"><strong>len(message_received) - buff_size &gt;
+          0</strong></span>. En dicho caso usted deberá elegir cómo manejar esto, lo importante es que su
+        función retorne a lo más<strong><span style="font-family: 'courier new', courier;">
+          buff_size</span></strong> bytes y que no se pierdan datos.<br><br></span></span></p>
+     <span style="background-color: #faf19d;"><strong><span
+        style="text-decoration: underline;">IMPORTANTE</span>:</strong>&nbsp;No olvide que cada parte del
+      mensaje <strong><span style="font-family: 'courier new', courier;">message</span></strong> deberá ser
+      encapsulado usando headers TCP (use las funciones implementadas en el punto 4). <strong>El segmento completo
+       (headers + datos)&nbsp;deberá ser enviado dentro del área de datos del&nbsp;datagrama UDP,</strong> por lo
+      que deberá considerar un tamaño de buffer para su socket UDP tal que quepa su sección de headers y su
+      sección de datos.</span>
+     <hr><span style="background-color: #faf7f7;"><strong>Test:</strong>&nbsp;Pruebe los códigos mostrados en el
+      apartado <em><strong>Test send y recv</strong></em> de la sección <em><strong>Material e indicaciones para
+        la actividad</strong></em>. Por ahora haga la prueba sin pérdida de datos.</span>
+     <hr>
+    </li>
+    <li>Implemente el <em>fin de conexión</em>&nbsp;para liberar recursos en emisor y receptor. Para ello añada las
+     funciones&nbsp;<span style="font-family: 'courier new', courier;"><strong>close()</strong></span>&nbsp;y
+     <strong style="font-family: 'courier new', courier;">recv_close()</strong>&nbsp;a la clase&nbsp;<strong><span
+       style="font-family: 'courier new', courier;">socketTCP</span></strong>.&nbsp; La función&nbsp;<strong
+      style="font-family: 'courier new', courier;">close()</strong><span
+      style="font-family: 'Open Sans', Verdana, Arial, Helvetica, sans-serif;"> debe implementar el</span><span
+      style="font-family: 'Open Sans', Verdana, Arial, Helvetica, sans-serif;">&nbsp;c</span>ierre de conexión
+     desde el lado del "Host A" según lo visto en el video. La función&nbsp;<strong><strong
+       style="font-family: 'courier new', courier;">recv_close()</strong>será la encargada de manejar el fin de
+      conexión</strong>, es decir, esta se deberá encargar&nbsp;de continuar el cierre de conexión desde el lado
+     del "Host B" según lo visto en el video.
+     <hr><span style="background-color: #faf7f7;"><strong>Test:</strong>&nbsp;Añada al final del código de pruebas
+      la parte anterior las líneas necesarias para cerrar la conexión y vea que la conexión se cierra con éxito.
+      Pruebe sin pérdidas</span>
+     <hr>
+    </li>
+    <li>Modifique sus funciones de handshake (<span
+      style="font-family: 'courier new', courier;"><strong>connect</strong></span> y <span
+      style="font-family: 'courier new', courier;"><strong>accept</strong></span>) para que puedan
+     <strong>manejar</strong> <strong>pérdidas.</strong>&nbsp;Para ello utilice un comportamiento basado
+     en&nbsp;<em>Stop &amp; Wait&nbsp;</em>tanto en&nbsp;<span
+      style="font-family: 'courier new', courier;"><strong>connect</strong></span> como <span
+      style="font-family: 'courier new', courier;"><strong>accept</strong></span>. Note que existe un caso borde
+     en que se pierde el último ACK del handshake antes de pasar al envío/recepción de datos,&nbsp;<strong>dibuje
+      un diagrama de este caso y adjuntelo a su informe</strong>. A partir de este diagrama determine una
+     solución. Es posible que para solucionar este caso borde deba modificar otras funciones como <span
+      style="font-family: 'courier new', courier;"><strong>send</strong></span> o <span
+      style="font-family: 'courier new', courier;"><strong>recv</strong></span>.
+     <hr><span style="background-color: #faf7f7;"><strong>Test:</strong> Repita las pruebas del paso 6, esta vez
+      induciendo pérdidas. Se recomienda crear pruebas nuevas enviando mensajes más largos. Para&nbsp;simular
+      pérdidas&nbsp;utilice <strong><span style="font-family: 'courier new', courier;">netem</span></strong>. En
+      caso de no poder utilizar <strong><span style="font-family: 'courier new', courier;">netem</span></strong>,
+      puede inducir pérdidas "a mano". Note que es posible que las pérdidas causen problemas con el cierre de
+      conexión, pues este aún no maneja pérdidas. Esto es esperable, <strong>lo importante</strong> es que hasta
+      antes del cierre su código logre transmitir los mensajes de manera íntegra&nbsp;<em>a pesar</em> de las
+      pérdidas.</span>
+     <hr>
+    </li>
+    <li>Modifique su función de cierre para que tolere pérdidas. Para ello haga las siguientes modificaciones:<br>
+     <p style="background-color: #f2f0f0;"><span style="font-family: 'courier new', courier;"><strong>-
+        close()</strong></span>&nbsp;:&nbsp;Si su función <span
+       style="font-family: 'courier new', courier;"><strong>close()</strong></span> no recibe los mensajes FIN y
+      ACK esperados luego de un timeout, renueve el timeout y vuelva a enviar el mensaje FIN. Haga que <span
+       style="font-family: 'courier new', courier;"><strong>close()</strong></span> pueda esperar hasta 3
+      timeouts. Si al cumplirse el tercer timeout no ha recibido los mensajes, simplemente asuma que la
+      contraparte se cerró y cierre la conexión.&nbsp;<br><br>&nbsp; &nbsp; En caso de recibir los mensajes FIN y
+      ACK con éxito, reenvíe el último ACK tres veces. Espere un tiempo timeout entre cada envío.</p>
+     <p style="background-color: #f2f0f0;"><span style="font-family: 'courier new', courier;"><strong>-
+        recv_close()</strong></span>: Modifique su código para que, en caso de no recibir el último ACK de la
+      secuencia de cierre, espere hasta 3 timeouts. Luego del tercer timeout simplemente asuma que la contraparte
+      se cerró y cierre la conexión.</p>
+     <hr><span style="background-color: #faf7f7;"><strong>Test:</strong> Repita las pruebas de la parte anterior y
+      verifique que ahora el cierre de conexión siempre se logra desde el lado que llama a la función <span
+       style="font-family: 'courier new', courier;"><strong>close()</strong></span>. En el caso de la
+      contraparte, verifique que una vez <span style="font-family: 'courier new', courier;"><strong>recv</strong></span>
+      recibe un mensaje FIN, este
+      siempre logra cerrar la conexión.</span>
+     <hr>
+    </li>
+   </ol>
+   <h3><strong>Pruebas</strong></h3>
+   <p>Antes de comenzar con las pruebas no olvide <strong>añadir a su informe los diagramas solicitados en los pasos
+     4 y 7</strong>.</p>
+   <p>Dado que en&nbsp;esta actividad su código implementa <span style="text-decoration: underline;">manejo de
+     pérdidas con <em>Stop &amp; Wait</em></span>&nbsp;se espera que su clase&nbsp;<span
+     style="font-family: 'courier new', courier;"><strong>SocketTCP</strong></span>&nbsp;en efecto sea capaz
+    de&nbsp;transmitir información de origen a destino de manera íntegra, incluso si se induce pérdida.</p>
+   <p>Para probar que su código maneja bien las pérdidas de datos&nbsp;puede crear un cliente y un servidor simples
+    usando objetos <span style="font-family: 'courier new', courier;"><strong>SocketTCP</strong></span>. Puede
+    reutilizar los códigos de pruebas de los tests de la actividad, pero recuerde que su código cliente de entrega
+    debe poder ejecutarse como se indicó al principio de la actividad:<br><span style="font-size: 1em;"></span></p>
+   <pre
+    style="background-color: #2b2b2b; color: #a9b7c6; font-family: 'Menlo'; font-size: 0.85em;"> % python3 cliente.py localhost 8000 &lt; archivo.txt</pre>
+   <p><span style="font-size: 1em;">Para las pruebas basta que su cliente le mande&nbsp;un archivo (de más de&nbsp;16
+     bytes) al servidor y luego cierre la conexión. Recuerde que puede simular pérdidas usando </span><strong
+     style="font-size: 1em;"><span style="font-family: 'courier new', courier;">netem loss</span></strong><span
+     style="font-size: 1em;">&nbsp;o a mano como se&nbsp;indica en el <em><strong>paso 1</strong></em>.</span><span
+     style="font-size: 1em;">&nbsp;Para sus pruebas añada un <strong>modo debug</strong> que</span><span
+     style="font-size: 1em;">&nbsp;indique si su código está manejando pérdida y cómo la va manejando. Usted puede
+     determinar los detalles de su modo debug. <strong>En caso de usar pérdidas a mano, indíquelo en su
+      informe</strong> y añada una forma simple de manejar las pérdidas (ej: puede poner variables globales que
+     permitan manejar la tasa de pérdidas, no olvide que las perdidas pueden ocurrir en ambas direcciones).</span>
+   </p>
+   <p>Además pruebe que&nbsp;<span style="font-family: 'courier new', courier;"><strong>recv(buff_size)</strong></span>
+    se comporta como se pide
+    en el <em><strong>paso&nbsp;5</strong></em> cuando el tamaño del buffer es tal que <span
+     style="font-family: 'courier new', courier;"><strong>buff_size &lt; message_length</strong></span>.&nbsp;Para
+    probar esto le puede enviar un archivo de tamaño <span
+     style="font-family: 'courier new', courier;"><strong>2n</strong></span> bytes y llamar 2 veces a <strong><span
+      style="font-family: 'courier new', courier;">recv</span></strong> con un <strong><span
+      style="font-family: 'courier new', courier;">buff_size=n</span></strong>. Verifique que esto funciona
+    cuando&nbsp;<strong><span style="font-family: 'courier new', courier;">n</span></strong>&nbsp;<strong>no es un
+     múltiplo de 16</strong>.&nbsp;</p>
+   <p><span style="background-color: #faf19d;"><strong>IMPORTANTE:</strong> Si encuentra
+     cualquier&nbsp;situación&nbsp;de borde no especificado en la actividad&nbsp;<strong>indíquelo en su
+      informe</strong>.&nbsp;Recuerde indicar en su <strong>informe</strong> las <strong>decisiones de
+      diseño</strong> tomadas, particularmente aquellas relacionadas al <em><strong>paso 5</strong></em>.</span>
+   </p>
+   <h3><strong>Material e indicaciones para la actividad</strong></h3>
+   <ul>
+    <ul>
+     <ul>
+      <li><strong>Ejemplo de 'clases' en python:&nbsp;</strong>&nbsp;<br>
+       <pre
+        style="background-color: #2b2b2b; color: #a9b7c6; font-family: 'Menlo'; font-size: 0.85em;"><span style="color: #cc7832;">class </span>Mascota:<br>    <span style="color: #cc7832;">def </span><span style="color: #b200b2;">__init__</span>(<span style="color: #94558d;">self</span>):<br>        <span style="color: #808080;"># inicializamos las variables que definen una mascota<br></span><span style="color: #808080;">        # los datos que aun no sabemos se ponen como None<br></span><span style="color: #808080;">        </span><span style="color: #94558d;">self</span>.especie = <span style="color: #cc7832;">None<br></span><span style="color: #cc7832;">        </span><span style="color: #94558d;">self</span>.peso = <span style="color: #cc7832;">None<br></span><span style="color: #cc7832;">        </span><span style="color: #94558d;">self</span>.tamanno = <span style="color: #cc7832;">None<br></span><span style="color: #cc7832;">        </span><span style="color: #94558d;">self</span>.buena_mascota = <span style="color: #cc7832;">True<br></span><span style="color: #cc7832;"><br></span><span style="color: #cc7832;">    </span><span style="color: #bbb529;">@staticmethod<br></span><span style="color: #bbb529;">    </span><span style="color: #cc7832;">def </span><span style="color: #ffc66d;">parse_mascota</span>(pet_str):<br>        nueva_mascota = Mascota()<br>        pet_split = pet_str.split(<span style="color: #6a8759;">" "</span>)<br><br>        <span style="color: #cc7832;">if </span><span style="color: #8888c6;">len</span>(pet_split) &gt; <span style="color: #6897bb;">1</span>:<br>            nueva_mascota.especie = pet_split[<span style="color: #6897bb;">0</span>]<br>            nueva_mascota.tamanno = pet_split[<span style="color: #6897bb;">1</span>]<br><br>        <span style="color: #cc7832;">return </span>nueva_mascota<br><br>    <span style="color: #cc7832;">def </span><span style="color: #ffc66d;">set_from_str</span>(<span style="color: #94558d;">self</span><span style="color: #cc7832;">, </span>pet_str):<br>        nueva_mascota = <span style="color: #94558d;">self</span>.parse_mascota(pet_str)<br>        <span style="color: #94558d;">self</span>.especie = nueva_mascota.especie<br>        <span style="color: #94558d;">self</span>.peso = nueva_mascota.peso<br>        <span style="color: #94558d;">self</span>.tamanno = nueva_mascota.tamanno<br><br>    <span style="color: #cc7832;">def </span><span style="color: #ffc66d;">set_peso</span>(<span style="color: #94558d;">self</span><span style="color: #cc7832;">, </span>peso):<br>        <span style="color: #94558d;">self</span>.peso = peso<br><br>    <span style="color: #cc7832;">def </span><span style="color: #ffc66d;">set_mala_mascota</span>(<span style="color: #94558d;">self</span>):<br>        <span style="color: #8888c6;">print</span>(<span style="color: #6a8759;">"No, no hay mascotas malas, me niego"</span>)<br><br>    <span style="color: #cc7832;">def </span><span style="color: #ffc66d;">is_buena_mascota</span>(<span style="color: #94558d;">self</span>):<br>        <span style="color: #cc7832;">return </span><span style="color: #94558d;">self</span>.buena_mascota<br><br>    <span style="color: #cc7832;">def </span><span style="color: #ffc66d;">is_chonky</span>(<span style="color: #94558d;">self</span>):<br>        <span style="color: #cc7832;">if </span><span style="color: #94558d;">self</span>.especie == <span style="color: #6a8759;">"gato"</span>:<br>            <span style="color: #cc7832;">if </span><span style="color: #94558d;">self</span>.tamanno == <span style="color: #6a8759;">"smol"</span>:<br>                <span style="color: #cc7832;">if </span><span style="color: #94558d;">self</span>.peso &gt; <span style="color: #6897bb;">5</span>:<br>                    <span style="color: #cc7832;">return </span><span style="color: #6a8759;">"está chonky"<br></span><span style="color: #6a8759;">                </span><span style="color: #cc7832;">else</span>:<br>                    <span style="color: #cc7832;">return </span><span style="color: #6a8759;">"no está chonky"<br></span><span style="color: #6a8759;">            </span><span style="color: #cc7832;">else</span>:<br>                <span style="color: #cc7832;">if </span><span style="color: #94558d;">self</span>.peso &gt; <span style="color: #6897bb;">7</span>:<br>                    <span style="color: #cc7832;">return </span><span style="color: #6a8759;">"está chonky"<br></span><span style="color: #6a8759;">                </span><span style="color: #cc7832;">else</span>:<br>                    <span style="color: #cc7832;">return </span><span style="color: #6a8759;">"no está chonky"<br></span><span style="color: #6a8759;">        </span><span style="color: #cc7832;">else</span>:<br>            <span style="color: #cc7832;">return </span><span style="color: #6a8759;">"la verdad es que ni idea, esto es un ejemplo chiquito"<br></span><span style="color: #6a8759;"><br></span><span style="color: #808080;"># usamos la clase que recién creamos<br></span>mi_gata = Mascota()<br>mi_gata.set_from_str(<span style="color: #6a8759;">"gato smol"</span>)<br>mi_gata.set_peso(<span style="color: #6897bb;">6</span>)<br><span style="color: #8888c6;">print</span>(mi_gata.is_chonky())</pre>
+      </li>
+     </ul>
+    </ul>
+   </ul>
+   <ul>
+    <ul>
+     <li><strong>Timeouts en sockets de python:</strong> El módulo de sockets en python provee una función para
+      establecer timeouts en las funciones <em>bloqueantes</em> de un socket (<a
+       href="https://docs.python.org/3/library/socket.html#socket.socket.settimeout" target="[object Object]">puede ver
+       la documentación en este enlace)</a>. Por ejemplo, en el siguiente
+      código, <strong><span style="font-family: 'courier new', courier;">server_socket</span></strong> va a
+      esperar por 5 segundos antes de lanzar un error por timeout. Note que una vez se cumple el timeout <em>se
+       lanza un error&nbsp;</em>el cual, de no ser correctamente manejado, va a resultar en que su código se
+      caiga.<br>
+      <pre
+       style="background-color: #2b2b2b; color: #a9b7c6; font-family: 'Menlo'; font-size: 0.85em;"> server_socket = socket.socket(socket.AF_INET<span style="color: #cc7832;">, </span>socket.SOCK_DGRAM) <span style="color: #808080;"># creamos un socket<br></span> server_socket.settimeout(<span style="color: #6897bb;">5</span>) <span style="color: #808080;"># le indicamos que espere a lo más 5 segundos en cualquier comando bloqueante (recv, recvfrom, accept, etc)<br></span> message<span style="color: #cc7832;">, </span>address = s_socket.recvfrom(<span style="color: #6897bb;">128</span>) <span style="color: #808080;"># esperamos a que nos envíen algo. Si en 5 segundo no recibimos algo se levanta un error</span></pre>
+     </li>
+     <li><strong>Test send y recv: </strong>Código para probar funciones <span
+       style="font-family: 'courier new', courier;"><strong>send</strong></span> y <span
+       style="font-family: 'courier new', courier;"><strong>recv</strong></span> usando el cliente y el servidor.
+      Recuerde que debe hacer import de su clase SocketTCP.<br>
+      <pre
+       style="background-color: #2b2b2b; color: #a9b7c6; font-family: 'Menlo'; font-size: 0.85em;"><span style="color: #808080;"># SERVER<br></span>server_socketTCP = SocketTCP.SocketTCP()<br>server_socketTCP.bind(address)<br>connection_socketTCP<span style="color: #cc7832;">, </span>new_address = server_socketTCP.accept()<br><br><span style="color: #808080;"># test 1<br></span>buff_size = <span style="color: #6897bb;">16<br></span>full_message = connection_socketTCP.recv(buff_size)<br><span style="color: #8888c6;">print</span>(<span style="color: #6a8759;">"Test 1 received:"</span><span style="color: #cc7832;">, </span>full_message)<br><span style="color: #cc7832;">if </span>full_message == <span style="color: #6a8759;">"Mensje de len=16"</span>.encode(): <span style="color: #8888c6;">print</span>(<span style="color: #6a8759;">"Test 1: Passed"</span>)<br><span style="color: #cc7832;">else</span>: <span style="color: #8888c6;">print</span>(<span style="color: #6a8759;">"Test 1: Failed"</span>)<br><br><span style="color: #808080;"># test 2<br></span>buff_size = <span style="color: #6897bb;">19<br></span>full_message = connection_socketTCP.recv(buff_size)<br><span style="color: #8888c6;">print</span>(<span style="color: #6a8759;">"Test 2 received:"</span><span style="color: #cc7832;">, </span>full_message)<br><span style="color: #cc7832;">if </span>full_message == <span style="color: #6a8759;">"Mensaje de largo 19"</span>.encode(): <span style="color: #8888c6;">print</span>(<span style="color: #6a8759;">"Test 2: Passed"</span>)<br><span style="color: #cc7832;">else</span>: <span style="color: #8888c6;">print</span>(<span style="color: #6a8759;">"Test 2: Failed"</span>)<br><br><span style="color: #808080;"># test 3<br></span>buff_size = <span style="color: #6897bb;">14<br></span>message_part_1 = connection_socketTCP.recv(buff_size)<br>message_part_2 = connection_socketTCP.recv(buff_size)<br><span style="color: #8888c6;">print</span>(<span style="color: #6a8759;">"Test 3 received:"</span><span style="color: #cc7832;">, </span>message_part_1 + message_part_2)<br><span style="color: #cc7832;">if </span>(message_part_1 + message_part_2) == <span style="color: #6a8759;">"Mensaje de largo 19"</span>.encode(): <span style="color: #8888c6;">print</span>(<span style="color: #6a8759;">"Test 3: Passed"</span>)<br><span style="color: #cc7832;">else</span>: <span style="color: #8888c6;">print</span>(<span style="color: #6a8759;">"Test 3: Failed"</span>)</pre>
+      <pre
+       style="background-color: #2b2b2b; color: #a9b7c6; font-family: 'Menlo'; font-size: 0.85em;"><span style="color: #808080;"># CLIENT<br></span>client_socketTCP = SocketTCP.SocketTCP()<br>client_socketTCP.connect(address)<br><span style="color: #808080;"># test 1<br></span>message = <span style="color: #6a8759;">"Mensje de len=16"</span>.encode()<br>client_socketTCP.send(message)<br><span style="color: #808080;"># test 2<br></span>message = <span style="color: #6a8759;">"Mensaje de largo 19"</span>.encode()<br>client_socketTCP.send(message)<br><span style="color: #808080;"># test 3<br></span>message = <span style="color: #6a8759;">"Mensaje de largo 19"</span>.encode()<br>client_socketTCP.send(message)</pre>
+     </li>
+    </ul>
+   </ul>
+   <p></p>
+  </div>
+ </div>
+</div>
