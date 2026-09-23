@@ -27,8 +27,24 @@ source
 
 ## Ejecución
 
+### Programa principal
+
 ```bash
 python -m servidor
 
 python -m cliente
+```
+
+### Con pérdidas
+
+Para activar las pérdidas:
+
+```bash
+sudo tc qdisc add dev lo root netem loss [% de pérdida] delay [tiempo de delay]
+```
+
+Para desactivarlas:
+
+```bash
+sudo tc qdisc del dev lo root netem
 ```
