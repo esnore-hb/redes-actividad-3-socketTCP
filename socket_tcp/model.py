@@ -70,7 +70,26 @@ class SocketTCP:
 	def connect(self, address: tuple[str, int]):
 		if not self._address:
 			raise Exception("socket_tcp: se te olvidó el bind") # noqa: TRY002
-		paquete = PaqueteTCP(seq=random.randint(0,100))
+
+		# --- primera etapa
+		x = random.randint(0,100)
+		paquete = PaqueteTCP(syn = 1, seq = x)
+		self._socket.sendto(self.create_segment(paquete), self._address)
+
+		# --- segunda etapa
+		binary = self._socket.recvfrom(23)[0]
+		paquete = self.parse_segment(binary)
+
+		if not (paquete.ack == 1 and paquete.syn == 1 and paquete.seq == x + 1):
+			raise Exception( # noqa: TRY002
+				"socket_tcp: no era el paquete que esperaba"
+			)
+
+		# --- tercera etapa
+		paquete.syn = 0
+		paquete.seq += 1
+		self._socket.sendto(self.create_segment(paquete), self._address)
+
 
 	def accept(self):
 
