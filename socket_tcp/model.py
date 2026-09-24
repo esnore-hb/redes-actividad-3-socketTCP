@@ -94,7 +94,7 @@ class SocketTCP:
 	def accept(self):
 
 		paquete, address = self._socket.recvfrom(23)
-		paquete_parseado = SocketTCP.parse_segment(paquete[0])
+		paquete_parseado = SocketTCP.parse_segment(paquete)
 
 		if paquete_parseado.syn == 1: #se envio la solucitud del cliente
 			seq_envio = paquete_parseado.seq + 1
