@@ -5,27 +5,23 @@ import socket_tcp
 
 address = ("localhost", 8000)
 
-
-def send_file(socket: socket.socket, file: str):
-
-	file_splitted = [file[i : (i + 16)] for i in range(0, len(file), 16)]
-	print(file_splitted)
-	for block in file_splitted:
-		print(block)
-		socket.sendto(f"{block}".encode(), address)
-
-	# Cerrar conexion
-	socket.sendto(b"", address)
-	print("File sent!")
-
-
 def main():
 	file = sys.stdin.read()
 
 	print("Se crea socket - Cliente")
 
+	# --- seccion envio del archivo
 	client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-	send_file(client_socket, file)
+	file_splitted = [file[i : (i + 16)] for i in range(0, len(file), 16)]
+	print(file_splitted)
+	for block in file_splitted:
+		print(block)
+		client_socket.sendto(f"{block}".encode(), address)
+	# --- seccion envio del archivo
+
+	# Cerrar conexion
+	client_socket.sendto(b"", address)
+	print("File sent!")
 	client_socket.close()
 
 
