@@ -1,3 +1,7 @@
+import random
+import socket
+
+
 class PaqueteTCP:
 	"""Estructura de 7 + 16 Bytes que almacena headers TCP.
 
@@ -25,7 +29,9 @@ class PaqueteTCP:
 class SocketTCP:
 
 	def __init__(self):
-		pass
+		self._address = None
+		self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		self._address = None
 
 
 	@staticmethod
@@ -49,11 +55,24 @@ class SocketTCP:
 
 		return header + paquete.body
 
-	def bind(address: tuple[str, str]):
-		pass
+	"""Pipeline del socket:
+	# --- server
+	server_socketTCP = SocketTCP.SocketTCP()
+	server_socketTCP.bind(address)
+	connection_socketTCP, new_address = server_socketTCP.accept()
 
-	def connect(address: tuple[str, str]):
-		pass
+	# --- client
+	client_socketTCP = SocketTCP.SocketTCP()
+	client_socketTCP.connect(address)
+	"""
+	def bind(self, address: tuple[str, int]):
+		self._socket.bind(address)
+		self._address = address
+
+	def connect(self, address: tuple[str, int]):
+		if not self._address:
+			raise Exception("socket_tcp: se te olvidó el bind") # noqa: TRY002
+		paquete = PaqueteTCP(seq=random.randint(0,100))
 
 	def accept():
 		pass

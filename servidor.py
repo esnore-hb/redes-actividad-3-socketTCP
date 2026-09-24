@@ -9,7 +9,7 @@ def recieve_file(socket: socket.socket):
 
 	pkg_size = 23 # bytes
 	data = socket.recvfrom(pkg_size)[0]
-	file = open("./recieved.txt", "wb")
+	file = open("./recieved.txt", "wb") # noqa: SIM115
 
 	while True:
 		# Un paquete vacio es el fin de la comunicación
