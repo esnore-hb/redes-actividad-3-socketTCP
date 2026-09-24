@@ -31,7 +31,6 @@ class SocketTCP:
 	def __init__(self):
 		self._address = None
 		self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-		self._address = None
 
 
 	@staticmethod
@@ -74,8 +73,25 @@ class SocketTCP:
 			raise Exception("socket_tcp: se te olvidó el bind") # noqa: TRY002
 		paquete = PaqueteTCP(seq=random.randint(0,100))
 
-	def accept():
-		pass
+	def accept(self):
+
+		paquete, address = self._socket.recvfrom(23)
+		paquete_parseado = SocketTCP.parse_segment(paquete[0])
+
+		if paquete_parseado.syn == 1: #se envio la solucitud del cliente
+			seq_envio = paquete_parseado.seq + 1
+			send_paquete = PaqueteTCP(ack=1, syn=1, seq=seq_envio)
+			self._socket.sendto(SocketTCP.create_segment(send_paquete), address)
+
+
+		timeout = 0.5
+
+		paquete2, address = self._socket.recvfrom(23)
+		paquete_parseado2 = SocketTCP.parse_segment(paquete2)
+
+		if paquete_parseado2.ack == 1 and paquete_parseado2.seq == seq_envio+1:
+			mi_socket_tcp = SocketTCP()
+			return mi_socket_tcp, address
 
 	def close():
 		pass
