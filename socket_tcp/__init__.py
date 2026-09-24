@@ -1,5 +1,5 @@
-from .model import SocketTCP
+from .model import PaqueteTCP, SocketTCP
 
 	# Tab indentation
 
-__all__ = ["SocketTCP"]
+__all__ = ["PaqueteTCP", "SocketTCP"]

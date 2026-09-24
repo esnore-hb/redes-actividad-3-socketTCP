@@ -1,7 +1,7 @@
 import socket
 import sys
 
-import socket_tcp
+from socket_tcp import PaqueteTCP, SocketTCP
 
 address = ("localhost", 8000)
 
@@ -13,10 +13,10 @@ def main():
 	# --- seccion envio del archivo
 	client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	file_splitted = [file[i : (i + 16)] for i in range(0, len(file), 16)]
-	print(file_splitted)
 	for block in file_splitted:
-		print(block)
-		client_socket.sendto(f"{block}".encode(), address)
+		paquete = PaqueteTCP()
+		paquete.body = block.encode()
+		client_socket.sendto(SocketTCP.create_segment(paquete), address)
 	# --- seccion envio del archivo
 
 	# Cerrar conexion

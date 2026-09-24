@@ -8,12 +8,19 @@ class PaqueteTCP:
 	SEQ (4 Bytes [Int]): Orden del paquete de la conexión.
 	BODY (16 Bytes): Contenido transportado.
 	"""
-	def __init__(self):
-		self.ack: bytes = bytes(1)
-		self.syn: bytes = bytes(1)
-		self.fin: bytes = bytes(1)
-		self.seq: bytes = bytes(4)
-		self.body: bytes = bytes(16)
+	def __init__(
+		self,
+		ack: int = 0,
+		syn: int = 0,
+		fin: int = 0,
+		seq: int = 0,
+		body: bytes = b"",
+	):
+		self.ack = ack
+		self.syn = syn
+		self.fin = fin
+		self.seq = seq
+		self.body = body
 
 class SocketTCP:
 
@@ -23,37 +30,24 @@ class SocketTCP:
 
 	@staticmethod
 	def parse_segment(segment_bytes: bytes) -> PaqueteTCP:
-		# Desempaquetamos cada campo según la posición fija
 		ack = int.from_bytes(segment_bytes[0:1], byteorder='big')
 		syn = int.from_bytes(segment_bytes[1:2], byteorder='big')
 		fin = int.from_bytes(segment_bytes[2:3], byteorder='big')
 		seq = int.from_bytes(segment_bytes[3:7], byteorder='big')
 		body = segment_bytes[7:]
 
-		return PaqueteTCP(
-			ack=ack,
-			syn=syn,
-			fin=fin,
-			seq=seq,
-			body=body
-		)
+		return PaqueteTCP(ack=ack, syn=syn, fin=fin, seq=seq, body=body)
 
 	@staticmethod
-	def create_segment(segment_dict: PaqueteTCP) -> bytes:
-		seq = segment_dict.seq
-		syn = segment_dict.syn
-		ack = segment_dict.ack
-		fin = segment_dict.fin
-		body = segment_dict.body
+	def create_segment(paquete: PaqueteTCP) -> bytes:
+		header = (
+			paquete.ack.to_bytes(1, byteorder="big")
+			+ paquete.syn.to_bytes(1, byteorder="big")
+			+ paquete.fin.to_bytes(1, byteorder="big")
+			+ paquete.seq.to_bytes(4, byteorder="big")
+		)
 
-		ack_bytes = ack.to_bytes(1, byteorder='big')
-		syn_bytes = syn.to_bytes(1, byteorder='big')
-		fin_bytes = fin.to_bytes(1, byteorder='big')
-		seq_bytes = seq.to_bytes(4, byteorder='big')
-
-		header = ack_bytes + syn_bytes + fin_bytes + seq_bytes
-
-		return header + body
+		return header + paquete.body
 
 	def bind(address: tuple[str, str]):
 		pass
