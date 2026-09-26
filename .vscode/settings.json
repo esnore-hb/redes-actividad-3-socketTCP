@@ -7,9 +7,11 @@
 		"configurations": [],
 		"compounds": []
 	},
+	"editor.insertSpaces": false,
 	"editor.rulers": [
 		80
 	],
+	"editor.tabSize": 4,
 	"git.autofetch": true,
 	"files.trimTrailingWhitespace": true,
 	"editor.renderWhitespace": "boundary",

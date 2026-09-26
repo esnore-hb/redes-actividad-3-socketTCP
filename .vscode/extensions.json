@@ -2,6 +2,7 @@
 	"recommendations": [
 		"njpwerner.autodocstring",
 		"davidanson.vscode-markdownlint",
+		"pkief.material-icon-theme",
 		"charliermarsh.ruff",
 		"astral-sh.ty",
 	]
