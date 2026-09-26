@@ -28,11 +28,11 @@ class PaqueteTCP:
 		de cualquier contenido.
 
 		Args:
-			ack (int, optional): Acknowledge de la conexión. Defaults to 0.
-			syn (int, optional): Sincronización de la conexión. Defaults to 0.
-			fin (int, optional): Término de la conexión. Defaults to 0.
-			seq (int, optional): Orden del paquete de la conexión. Defaults to 0.
-			body (bytes, optional): Contenido transportado. Defaults to b"".
+						ack (int, optional): Acknowledge de la conexión. Defaults to 0.
+						syn (int, optional): Sincronización de la conexión. Defaults to 0.
+						fin (int, optional): Término de la conexión. Defaults to 0.
+						seq (int, optional): Orden del paquete de la conexión. Defaults to 0.
+						body (bytes, optional): Contenido transportado. Defaults to b"".
 		"""
 		self.ack = ack
 		self.syn = syn
@@ -88,7 +88,7 @@ class SocketTCP:
 		if not (
 			paquete2.syn == 1 and paquete2.ack == 1 and paquete2.seq == x + 1
 		):
-			raise Exception("socket_tcp: no hubo saludo de manos (etapa 2)")
+			raise Exception("socket_tcp: no hubo saludo de manos (etapa 2)")  # noqa: TRY002
 
 		# --- Paso 3: Cliente envía ACK final ---
 		paquete3 = PaqueteTCP(ack=1, syn=0, seq=x + 2)
@@ -100,14 +100,14 @@ class SocketTCP:
 		paquete1 = self.parse_segment(binary)
 
 		if paquete1.syn != 1:
-			raise Exception("socket_tcp: no recibí un SYN")
+			raise Exception("socket_tcp: no recibí un SYN")  # noqa: TRY002
 
 		x = paquete1.seq
 
 		# --- Crear nuevo socket dedicado para la conexión ---
 		new_socket = SocketTCP()
 		if not self._local_address:
-			raise Exception(
+			raise Exception(  # noqa: TRY002
 				"socket_tcp: ¿aceptando un paquete sin haber hecho bind()?"
 			)
 		# con puerto 0, el computador asigna un puerto
@@ -125,8 +125,9 @@ class SocketTCP:
 		if not (
 			paquete3.ack == 1 and paquete3.syn == 0 and paquete3.seq == x + 2
 		):
-			raise Exception("socket_tcp: no hubo saludo de manos (etapa 3)")
+			raise Exception("socket_tcp: no hubo saludo de manos (etapa 3)")  # noqa: TRY002
 
+		print("[STATUS] Servidor conectado con cliente.")
 		return new_socket, new_socket._remote_address
 
 	def close():

@@ -6,11 +6,18 @@ from socket_tcp import PaqueteTCP, SocketTCP
 address = ("localhost", 8000)
 
 def main():
-	file = sys.stdin.read()
+	# file = sys.stdin.read()
 
 	print("Se crea socket - Cliente")
 
+	# -- seccion crear el socket
+	client_socket_tcp = SocketTCP()
+	client_socket_tcp.bind(("localhost", 8001))
+	client_socket_tcp.connect(address)
+	# -- seccion crear el socket
+
 	# --- seccion envio del archivo
+	"""
 	client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	file_splitted = [file[i : (i + 16)] for i in range(0, len(file), 16)]
 	for block in file_splitted:
@@ -23,6 +30,7 @@ def main():
 	client_socket.sendto(b"", address)
 	print("File sent!")
 	client_socket.close()
+	"""
 
 
 
