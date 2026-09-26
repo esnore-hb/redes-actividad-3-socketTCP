@@ -19,7 +19,21 @@ class PaqueteTCP:
 		fin: int = 0,
 		seq: int = 0,
 		body: bytes = b"",
-	):
+	) -> None:
+		"""Constructor del PaqueteTCP.
+
+		Los atributos ACK, SYN, FIN son `bool` representados en Python como
+		`int`, pero al ser llevados a una cadena de `bytes`, son de 1 `byte` de
+		tamaño. SEQ es un `int` tradicional de 4 `bytes`, y BODY son 16 `bytes`
+		de cualquier contenido.
+
+		Args:
+			ack (int, optional): Acknowledge de la conexión. Defaults to 0.
+			syn (int, optional): Sincronización de la conexión. Defaults to 0.
+			fin (int, optional): Término de la conexión. Defaults to 0.
+			seq (int, optional): Orden del paquete de la conexión. Defaults to 0.
+			body (bytes, optional): Contenido transportado. Defaults to b"".
+		"""
 		self.ack = ack
 		self.syn = syn
 		self.fin = fin
