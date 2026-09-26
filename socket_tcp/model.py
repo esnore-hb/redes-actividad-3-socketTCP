@@ -114,3 +114,17 @@ class SocketTCP:
 			raise Exception("socket_tcp: no hubo saludo de manos (etapa 3)")
 
 		return new_socket, new_socket._remote_address
+
+	def close():
+		pass
+
+	def recv_close():
+		pass
+
+	# --- Funciones del Stop & Wait
+
+	def send(message: bytes):
+		pass
+
+	def recv(buff_size: bytes):
+		pass
