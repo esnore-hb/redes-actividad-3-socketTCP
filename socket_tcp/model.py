@@ -28,11 +28,11 @@ class PaqueteTCP:
 		de cualquier contenido.
 
 		Args:
-						ack (int, optional): Acknowledge de la conexión. Defaults to 0.
-						syn (int, optional): Sincronización de la conexión. Defaults to 0.
-						fin (int, optional): Término de la conexión. Defaults to 0.
-						seq (int, optional): Orden del paquete de la conexión. Defaults to 0.
-						body (bytes, optional): Contenido transportado. Defaults to b"".
+			ack (int, optional): Acknowledge de la conexión. Defaults to 0.
+			syn (int, optional): Sincronización de la conexión. Defaults to 0.
+			fin (int, optional): Término de la conexión. Defaults to 0.
+			seq (int, optional): Orden del paquete de la conexión. Defaults to 0.
+			body (bytes, optional): Contenido transportado. Defaults to b"".
 		"""
 		self.ack = ack
 		self.syn = syn
@@ -82,7 +82,7 @@ class SocketTCP:
 		self._socket.sendto(self.create_segment(paquete1), self._remote_address)
 
 		# --- Paso 2: Cliente recibe SYN-ACK ---
-		binary, _ = self._socket.recvfrom(23)
+		binary, server_address = self._socket.recvfrom(23)
 		paquete2 = self.parse_segment(binary)
 
 		if not (
@@ -91,6 +91,7 @@ class SocketTCP:
 			raise Exception("socket_tcp: no hubo saludo de manos (etapa 2)")  # noqa: TRY002
 
 		# --- Paso 3: Cliente envía ACK final ---
+		self._remote_address = server_address
 		paquete3 = PaqueteTCP(ack=1, syn=0, seq=x + 2)
 		self._socket.sendto(self.create_segment(paquete3), self._remote_address)
 
