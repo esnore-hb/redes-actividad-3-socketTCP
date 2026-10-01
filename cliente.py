@@ -5,6 +5,7 @@ from socket_tcp import PaqueteTCP, SocketTCP
 
 address = ("localhost", 8000)
 
+
 def main():
 	# file = sys.stdin.read()
 
@@ -31,7 +32,6 @@ def main():
 	print("File sent!")
 	client_socket.close()
 	"""
-
 
 
 if __name__ == "__main__":

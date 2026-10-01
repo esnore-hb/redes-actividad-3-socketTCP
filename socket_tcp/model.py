@@ -49,21 +49,21 @@ class SocketTCP:
 
 	@staticmethod
 	def parse_segment(segment_bytes: bytes) -> PaqueteTCP:
-		ack = int.from_bytes(segment_bytes[0:1], byteorder="big")
-		syn = int.from_bytes(segment_bytes[1:2], byteorder="big")
-		fin = int.from_bytes(segment_bytes[2:3], byteorder="big")
-		seq = int.from_bytes(segment_bytes[3:7], byteorder="big")
+		ack = int.from_bytes(segment_bytes[0:1])
+		syn = int.from_bytes(segment_bytes[1:2])
+		fin = int.from_bytes(segment_bytes[2:3])
+		seq = int.from_bytes(segment_bytes[3:7])
 		body = segment_bytes[7:]
 
-		return PaqueteTCP(ack=ack, syn=syn, fin=fin, seq=seq, body=body)
+		return PaqueteTCP(ack, syn, fin, seq, body)
 
 	@staticmethod
 	def create_segment(paquete: PaqueteTCP) -> bytes:
 		header = (
-			paquete.ack.to_bytes(1, byteorder="big")
-			+ paquete.syn.to_bytes(1, byteorder="big")
-			+ paquete.fin.to_bytes(1, byteorder="big")
-			+ paquete.seq.to_bytes(4, byteorder="big")
+			paquete.ack.to_bytes(1)
+			+ paquete.syn.to_bytes(1)
+			+ paquete.fin.to_bytes(1)
+			+ paquete.seq.to_bytes(4)
 		)
 		return header + paquete.body
 
@@ -77,7 +77,7 @@ class SocketTCP:
 		self._remote_address = address
 
 		# --- Paso 1: Cliente envía SYN (seq = x) ---
-		x = random.randint(0, 100)
+		x = random.randint(1, 100)
 		paquete1 = PaqueteTCP(syn=1, seq=x)
 		self._socket.sendto(self.create_segment(paquete1), self._remote_address)
 
@@ -139,8 +139,14 @@ class SocketTCP:
 
 	# --- Funciones del Stop & Wait
 
-	def send(message: bytes):
-		pass
+	def send(self, message: bytes):
+		length_message = len(message)
+		x = random.randint(0, 100)
+		paquete1 = PaqueteTCP(seq=x, body=length_message.to_bytes(4))
 
-	def recv(buff_size: bytes):
+	def recv(self, buff_size: bytes):
+		binary1, recieve_addres = self._socket.recvfrom(23)
+		paquete1 = SocketTCP.parse_segment(binary1)
+
+		if not (b)
 		pass
