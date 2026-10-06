@@ -144,9 +144,29 @@ class SocketTCP:
 		x = random.randint(0, 100)
 		paquete1 = PaqueteTCP(seq=x, body=length_message.to_bytes(4))
 
-	def recv(self, buff_size: bytes):
-		binary1, recieve_addres = self._socket.recvfrom(23)
-		paquete1 = SocketTCP.parse_segment(binary1)
+	def recv(self, buff_size: int):
+		binary, recieve_address = self._socket.recvfrom(23)
+		paquete1 = SocketTCP.parse_segment(binary)
 
-		if not (b)
-		pass
+		# asumimos que el primer mensaje tiene el largo del mensaje, en bytes
+		length_mensaje = int.from_bytes(paquete1.body)
+		limit = min(length_mensaje, buff_size)
+
+		message_binary = b""
+		actual_seq = paquete1.seq
+
+		# empezamos a recibir todo el resto del mensaje
+		while len(message_binary) < limit:
+			binary, recieve_address = self._socket.recvfrom(23)
+			paquete = SocketTCP.parse_segment(binary)
+
+			if actual_seq + 1 != paquete.seq:
+				continue # el paquete no es la secuencia correcta
+				# repetimos sin cambiar el actual_seq que tenemos
+
+			self._socket.sendto("Mandar ack", recieve_address)
+			message_binary += paquete.body
+			actual_seq = paquete.seq
+
+		return message_binary[:limit]
+
