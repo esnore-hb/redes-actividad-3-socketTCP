@@ -46,6 +46,7 @@ class SocketTCP:
 		self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 		self._local_address = None
 		self._remote_address = None
+		self._seq = None  # Último número de secuencia del handshake o transferencia.
 
 		self._recv_buffer = b""
 		self._recv_remaining = 0
@@ -73,15 +74,15 @@ class SocketTCP:
 
 	def bind(self, address: tuple[str, int]):
 		self._socket.bind(address)
-		self._local_address = address
+		self._local_address = self._socket.getsockname()
 
 	def connect(self, address: tuple[str, int]):
 		if not self._local_address:
-			raise Exception("socket_tcp: se te olvidó el bind()")  # noqa: TRY002
+			self.bind(("", 0))
 		self._remote_address = address
 
 		# --- Paso 1: Cliente envía SYN (seq = x) ---
-		x = random.randint(1, 100)
+		x = random.randint(0, 100)
 		paquete1 = PaqueteTCP(syn=1, seq=x)
 		self._socket.sendto(self.create_segment(paquete1), self._remote_address)
 
@@ -90,7 +91,8 @@ class SocketTCP:
 		paquete2 = self.parse_segment(binary)
 
 		if not (
-			paquete2.syn == 1 and paquete2.ack == 1 and paquete2.seq == x + 1
+			paquete2.syn == 1 and paquete2.ack == 1
+			and paquete2.fin == 0 and paquete2.seq == x + 1
 		):
 			raise Exception("socket_tcp: no hubo saludo de manos (etapa 2)")  # noqa: TRY002
 
@@ -98,13 +100,14 @@ class SocketTCP:
 		self._remote_address = server_address
 		paquete3 = PaqueteTCP(ack=1, syn=0, seq=x + 2)
 		self._socket.sendto(self.create_segment(paquete3), self._remote_address)
+		self._seq = paquete3.seq
 
 	def accept(self):
 		# --- Paso 1: Servidor recibe SYN de un cliente ---
 		binary, client_address = self._socket.recvfrom(23)
 		paquete1 = self.parse_segment(binary)
 
-		if paquete1.syn != 1:
+		if not (paquete1.syn == 1 and paquete1.ack == 0 and paquete1.fin == 0):
 			raise Exception("socket_tcp: no recibí un SYN")  # noqa: TRY002
 
 		x = paquete1.seq
@@ -124,16 +127,19 @@ class SocketTCP:
 		new_socket._socket.sendto(self.create_segment(paquete2), client_address)
 
 		# --- Paso 3: Servidor recibe el ACK final del cliente ---
-		binary2, _ = new_socket._socket.recvfrom(23)
+		binary2, ack_address = new_socket._socket.recvfrom(23)
 		paquete3 = self.parse_segment(binary2)
 
 		if not (
-			paquete3.ack == 1 and paquete3.syn == 0 and paquete3.seq == x + 2
+			ack_address == client_address
+			and paquete3.ack == 1 and paquete3.syn == 0
+			and paquete3.fin == 0 and paquete3.seq == x + 2
 		):
 			raise Exception("socket_tcp: no hubo saludo de manos (etapa 3)")  # noqa: TRY002
 
+		new_socket._seq = paquete3.seq
 		print("[STATUS] Servidor conectado con cliente.")
-		return new_socket, new_socket._remote_address
+		return new_socket, new_socket._local_address
 
 	def close():
 		pass
@@ -145,7 +151,7 @@ class SocketTCP:
 
 	def send(self, message: bytes):
 		length_message = len(message)
-		x = random.randint(0, 100)
+		x = 0
 		paquete1 = PaqueteTCP(seq=x, body=length_message.to_bytes(4))
 
 	def recv(self, buff_size: int) -> bytes:

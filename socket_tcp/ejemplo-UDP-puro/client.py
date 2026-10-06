@@ -27,7 +27,8 @@ client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 # message = input("Ingrese mensaje > ") + "\n"
 # client_socket.sendto(message.encode(), address)
 
-send_file(client_socket, "./src/ejemplo-UDP-puro/lorem-ipsum.txt")
+filename = input("Ingrese la ruta del archivo > ")
+send_file(client_socket, filename)
 
 # -- Para recibir el echo del server
 # message = client_socket.recvfrom(4)
