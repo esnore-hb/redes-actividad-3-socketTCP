@@ -46,6 +46,7 @@ class SocketTCP:
 		self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 		self._local_address = None
 		self._remote_address = None
+		self._seq = None  # Último número de secuencia del handshake o transferencia.
 
 	@staticmethod
 	def parse_segment(segment_bytes: bytes) -> PaqueteTCP:
@@ -69,11 +70,11 @@ class SocketTCP:
 
 	def bind(self, address: tuple[str, int]):
 		self._socket.bind(address)
-		self._local_address = address
+		self._local_address = self._socket.getsockname()
 
 	def connect(self, address: tuple[str, int]):
 		if not self._local_address:
-			raise Exception("socket_tcp: se te olvidó el bind()")  # noqa: TRY002
+			self.bind(("", 0))
 		self._remote_address = address
 
 		# --- Paso 1: Cliente envía SYN (seq = x) ---
@@ -94,6 +95,7 @@ class SocketTCP:
 		self._remote_address = server_address
 		paquete3 = PaqueteTCP(ack=1, syn=0, seq=x + 2)
 		self._socket.sendto(self.create_segment(paquete3), self._remote_address)
+		self._seq = paquete3.seq
 
 	def accept(self):
 		# --- Paso 1: Servidor recibe SYN de un cliente ---
@@ -128,8 +130,9 @@ class SocketTCP:
 		):
 			raise Exception("socket_tcp: no hubo saludo de manos (etapa 3)")  # noqa: TRY002
 
+		new_socket._seq = paquete3.seq
 		print("[STATUS] Servidor conectado con cliente.")
-		return new_socket, new_socket._remote_address
+		return new_socket, new_socket._local_address
 
 	def close():
 		pass
@@ -141,12 +144,8 @@ class SocketTCP:
 
 	def send(self, message: bytes):
 		length_message = len(message)
-		x = random.randint(0, 100)
+		x = 0
 		paquete1 = PaqueteTCP(seq=x, body=length_message.to_bytes(4))
 
-	def recv(self, buff_size: bytes):
-		binary1, recieve_addres = self._socket.recvfrom(23)
-		paquete1 = SocketTCP.parse_segment(binary1)
-
-		if not (b)
+	def recv(self, buff_size: int):
 		pass
