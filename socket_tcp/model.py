@@ -51,6 +51,8 @@ class SocketTCP:
 		self._recv_buffer = b""
 		self._recv_remaining = 0
 		self._recv_seq = -1
+		self._handshake_seq = None
+		self._pending_segment = None
 
 	@staticmethod
 	def parse_segment(segment_bytes: bytes) -> PaqueteTCP:
@@ -80,64 +82,64 @@ class SocketTCP:
 		if not self._local_address:
 			self.bind(("", 0))
 		self._remote_address = address
-
-		# --- Paso 1: Cliente envía SYN (seq = x) ---
 		x = random.randint(0, 100)
-		paquete1 = PaqueteTCP(syn=1, seq=x)
-		self._socket.sendto(self.create_segment(paquete1), self._remote_address)
-
-		# --- Paso 2: Cliente recibe SYN-ACK ---
-		binary, server_address = self._socket.recvfrom(23)
-		paquete2 = self.parse_segment(binary)
-
-		if not (
-			paquete2.syn == 1 and paquete2.ack == 1
-			and paquete2.fin == 0 and paquete2.seq == x + 1
-		):
-			raise Exception("socket_tcp: no hubo saludo de manos (etapa 2)")  # noqa: TRY002
-
-		# --- Paso 3: Cliente envía ACK final ---
-		self._remote_address = server_address
-		paquete3 = PaqueteTCP(ack=1, syn=0, seq=x + 2)
-		self._socket.sendto(self.create_segment(paquete3), self._remote_address)
-		self._seq = paquete3.seq
+		syn = self.create_segment(PaqueteTCP(syn=1, seq=x))
+		previous_timeout = self._socket.gettimeout()
+		self._socket.settimeout(0.01)
+		try:
+			while True:
+				self._socket.sendto(syn, address)
+				try:
+					binary, server_address = self._socket.recvfrom(23)
+					response = self.parse_segment(binary)
+					if (response.syn == 1 and response.ack == 1
+						and response.fin == 0 and response.seq == x + 1):
+						break
+				except socket.timeout:
+					continue
+			self._remote_address = server_address
+			self._handshake_seq = x + 2
+			ack = PaqueteTCP(ack=1, seq=self._handshake_seq)
+			self._socket.sendto(self.create_segment(ack), server_address)
+			self._seq = self._handshake_seq
+		finally:
+			self._socket.settimeout(previous_timeout)
 
 	def accept(self):
-		# --- Paso 1: Servidor recibe SYN de un cliente ---
-		binary, client_address = self._socket.recvfrom(23)
-		paquete1 = self.parse_segment(binary)
-
-		if not (paquete1.syn == 1 and paquete1.ack == 0 and paquete1.fin == 0):
-			raise Exception("socket_tcp: no recibí un SYN")  # noqa: TRY002
-
-		x = paquete1.seq
-
-		# --- Crear nuevo socket dedicado para la conexión ---
+		# Espera el SYN inicial; el cliente lo retransmite si se pierde.
+		while True:
+			binary, client_address = self._socket.recvfrom(23)
+			request = self.parse_segment(binary)
+			if request.syn == 1 and request.ack == 0 and request.fin == 0:
+				break
+		x = request.seq
 		new_socket = SocketTCP()
-		if not self._local_address:
-			raise Exception(  # noqa: TRY002
-				"socket_tcp: ¿aceptando un paquete sin haber hecho bind()?"
-			)
-		# con puerto 0, el computador asigna un puerto
 		new_socket.bind((self._local_address[0], 0))
 		new_socket._remote_address = client_address
-
-		# --- Paso 2: Servidor envía SYN-ACK desde el nuevo socket ---
-		paquete2 = PaqueteTCP(syn=1, ack=1, seq=x + 1)
-		new_socket._socket.sendto(self.create_segment(paquete2), client_address)
-
-		# --- Paso 3: Servidor recibe el ACK final del cliente ---
-		binary2, ack_address = new_socket._socket.recvfrom(23)
-		paquete3 = self.parse_segment(binary2)
-
-		if not (
-			ack_address == client_address
-			and paquete3.ack == 1 and paquete3.syn == 0
-			and paquete3.fin == 0 and paquete3.seq == x + 2
-		):
-			raise Exception("socket_tcp: no hubo saludo de manos (etapa 3)")  # noqa: TRY002
-
-		new_socket._seq = paquete3.seq
+		response = self.create_segment(PaqueteTCP(syn=1, ack=1, seq=x + 1))
+		previous_timeout = new_socket._socket.gettimeout()
+		new_socket._socket.settimeout(0.01)
+		try:
+			while True:
+				new_socket._socket.sendto(response, client_address)
+				try:
+					binary, address = new_socket._socket.recvfrom(23)
+					packet = self.parse_segment(binary)
+					if address != client_address or packet.seq != x + 2:
+						continue
+					if packet.syn != 0 or packet.fin != 0:
+						continue
+					if packet.ack == 1:
+						break
+					# La longitud tambi?n confirma la conexi?n si se perdi? el ACK.
+					if packet.ack == 0 and len(packet.body) == 4:
+						new_socket._pending_segment = (binary, address)
+						break
+				except socket.timeout:
+					continue
+		finally:
+			new_socket._socket.settimeout(previous_timeout)
+		new_socket._seq = x + 2
 		print("[STATUS] Servidor conectado con cliente.")
 		return new_socket, new_socket._local_address
 
@@ -147,8 +149,12 @@ class SocketTCP:
 		fin = PaqueteTCP(fin=1, seq=x)
 		self._socket.sendto(self.create_segment(fin), self._remote_address)
 
-		binary, address = self._socket.recvfrom(23)
-		response = self.parse_segment(binary)
+		while True:
+			binary, address = self._socket.recvfrom(23)
+			response = self.parse_segment(binary)
+			if response.ack == 1 and response.syn == 0 and response.fin == 0:
+				continue  # ACK de datos que quedó en la cola.
+			break
 		if not (
 			address == self._remote_address
 			and response.fin == 1 and response.ack == 1
@@ -162,8 +168,19 @@ class SocketTCP:
 
 	def recv_close(self):
 		# Host B espera el FIN y responde con FIN-ACK.
-		binary, address = self._socket.recvfrom(23)
-		fin = self.parse_segment(binary)
+		while True:
+			binary, address = self._socket.recvfrom(23)
+			fin = self.parse_segment(binary)
+			# Puede quedar un ACK del handshake retransmitido en la cola.
+			if fin.ack == 1 and fin.syn == 0 and fin.fin == 0:
+				continue
+			# Confirma otra vez el último bloque si su ACK llegó tarde o se perdió.
+			if (address == self._remote_address and fin.fin == 0
+				and fin.syn == 0 and fin.seq == self._recv_seq):
+				ack = PaqueteTCP(ack=1, seq=fin.seq)
+				self._socket.sendto(self.create_segment(ack), address)
+				continue
+			break
 		if not (
 			address == self._remote_address
 			and fin.fin == 1 and fin.ack == 0 and fin.syn == 0
@@ -201,6 +218,13 @@ class SocketTCP:
 					try:
 						binary, address = self._socket.recvfrom(23)
 						ack = self.parse_segment(binary)
+						# SYN-ACK repetido: el servidor no recibi? el ACK final.
+						if (address == self._remote_address and ack.syn == 1
+							and ack.ack == 1 and ack.fin == 0
+							and ack.seq == self._handshake_seq - 1):
+							final_ack = PaqueteTCP(ack=1, seq=self._handshake_seq)
+							self._socket.sendto(self.create_segment(final_ack), address)
+							continue
 						if address == self._remote_address and ack.ack == 1 and ack.seq == x:
 							break
 					except socket.timeout:
@@ -214,8 +238,14 @@ class SocketTCP:
 		# primer mensaje es el largo del mensaje
 		if self._recv_remaining == 0 and not self._recv_buffer:
 			while True:
-				binary, address = self._socket.recvfrom(23)
+				if self._pending_segment is not None:
+					binary, address = self._pending_segment
+					self._pending_segment = None
+				else:
+					binary, address = self._socket.recvfrom(23)
 				paquete = SocketTCP.parse_segment(binary)
+				if paquete.ack == 1 or paquete.syn == 1:
+					continue
 				ack = PaqueteTCP(ack=1, seq=paquete.seq)
 				self._socket.sendto(SocketTCP.create_segment(ack), address)
 
@@ -227,6 +257,8 @@ class SocketTCP:
 		while len(self._recv_buffer) < buff_size and self._recv_remaining > 0:
 			binary, address = self._socket.recvfrom(23)
 			paquete = SocketTCP.parse_segment(binary)
+			if paquete.ack == 1 or paquete.syn == 1:
+				continue
 
 			# paquete duplicado. nuestro ACK se perdió
 			if paquete.seq == self._recv_seq:
