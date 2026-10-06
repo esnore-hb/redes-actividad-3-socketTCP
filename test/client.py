@@ -14,3 +14,6 @@ client_socketTCP.send(message)
 # test 3
 message = "Mensaje de largo 19".encode()
 client_socketTCP.send(message)
+
+client_socketTCP.close()
+print("Cierre cliente: Passed" if client_socketTCP._socket.fileno() == -1 else "Cierre cliente: Failed")

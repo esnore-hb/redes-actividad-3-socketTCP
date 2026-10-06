@@ -141,11 +141,48 @@ class SocketTCP:
 		print("[STATUS] Servidor conectado con cliente.")
 		return new_socket, new_socket._local_address
 
-	def close():
-		pass
+	def close(self):
+		# Host A inicia el cierre con FIN.
+		x = self._seq
+		fin = PaqueteTCP(fin=1, seq=x)
+		self._socket.sendto(self.create_segment(fin), self._remote_address)
 
-	def recv_close():
-		pass
+		binary, address = self._socket.recvfrom(23)
+		response = self.parse_segment(binary)
+		if not (
+			address == self._remote_address
+			and response.fin == 1 and response.ack == 1
+			and response.syn == 0 and response.seq == x + 1
+		):
+			raise Exception("socket_tcp: no recibí FIN-ACK de cierre")
+
+		ack = PaqueteTCP(ack=1, seq=x + 2)
+		self._socket.sendto(self.create_segment(ack), self._remote_address)
+		self._socket.close()
+
+	def recv_close(self):
+		# Host B espera el FIN y responde con FIN-ACK.
+		binary, address = self._socket.recvfrom(23)
+		fin = self.parse_segment(binary)
+		if not (
+			address == self._remote_address
+			and fin.fin == 1 and fin.ack == 0 and fin.syn == 0
+		):
+			raise Exception("socket_tcp: no recibí FIN de cierre")
+
+		x = fin.seq
+		response = PaqueteTCP(fin=1, ack=1, seq=x + 1)
+		self._socket.sendto(self.create_segment(response), self._remote_address)
+
+		binary, address = self._socket.recvfrom(23)
+		ack = self.parse_segment(binary)
+		if not (
+			address == self._remote_address
+			and ack.ack == 1 and ack.fin == 0 and ack.syn == 0
+			and ack.seq == x + 2
+		):
+			raise Exception("socket_tcp: no recibí ACK final de cierre")
+		self._socket.close()
 
 	# --- Funciones del Stop & Wait
 
