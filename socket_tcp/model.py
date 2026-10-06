@@ -149,37 +149,43 @@ class SocketTCP:
 		paquete1 = PaqueteTCP(seq=x, body=length_message.to_bytes(4))
 
 	def recv(self, buff_size: int) -> bytes:
-		binary, address = self._socket.recvfrom(23)
-		paquete1 = SocketTCP.parse_segment(binary)
+		# primer mensaje es el largo del mensaje
+		if self._recv_remaining == 0 and not self._recv_buffer:
+			while True:
+				binary, address = self._socket.recvfrom(23)
+				paquete = SocketTCP.parse_segment(binary)
+				ack = PaqueteTCP(ack=1, seq=paquete.seq)
+				self._socket.sendto(SocketTCP.create_segment(ack), address)
 
-		length_mensaje = int.from_bytes(paquete1.body)
-		limit = min(length_mensaje, buff_size)
+				if paquete.seq != self._recv_seq:
+					break
+			self._recv_remaining = int.from_bytes(paquete.body)
+			self._recv_seq = paquete.seq
 
-		message_binary = b""
-		actual_seq = paquete1.seq
-
-		while len(message_binary) < limit:
+		while len(self._recv_buffer) < buff_size and self._recv_remaining > 0:
 			binary, address = self._socket.recvfrom(23)
 			paquete = SocketTCP.parse_segment(binary)
 
 			# paquete duplicado. nuestro ACK se perdió
-			if paquete.seq == actual_seq:
-				ack = PaqueteTCP(ack=1, seq=actual_seq)
+			if paquete.seq == self._recv_seq:
+				ack = PaqueteTCP(ack=1, seq=paquete.seq)
 				self._socket.sendto(SocketTCP.create_segment(ack), address)
 				continue
 
 			# paquete fuera de orden
-			if paquete.seq != actual_seq + 1:
+			if paquete.seq != self._recv_seq + 1:
 				continue
 
-			if len(message_binary) + len(paquete.body) > limit:
-				break
+			self._recv_buffer += paquete.body
+			self._recv_remaining -= len(paquete.body)
+			self._recv_seq = paquete.seq
 
-			message_binary += paquete.body
-			actual_seq = paquete.seq
-
-			ack = PaqueteTCP(ack=1, seq=actual_seq)
+			ack = PaqueteTCP(ack=1, seq=self._recv_seq)
 			self._socket.sendto(SocketTCP.create_segment(ack), address)
 
-		return message_binary
+		# se devuelve a lo mas buff_size, y se guarda el resto,
+		# para la siguiente llamada a recv()
+		data = self._recv_buffer[:buff_size]
+		self._recv_buffer = self._recv_buffer[buff_size:]
+		return data
 
