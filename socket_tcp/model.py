@@ -151,8 +151,27 @@ class SocketTCP:
 
 	def send(self, message: bytes):
 		length_message = len(message)
-		x = 0
-		paquete1 = PaqueteTCP(seq=x, body=length_message.to_bytes(4))
+		x = self._seq
+		blocks = [length_message.to_bytes(4)]
+		blocks += [message[i:i + 16] for i in range(0, length_message, 16)]
+		previous_timeout = self._socket.gettimeout()
+		self._socket.settimeout(0.01)
+		try:
+			for block in blocks:
+				segment = self.create_segment(PaqueteTCP(seq=x, body=block))
+				while True:
+					self._socket.sendto(segment, self._remote_address)
+					try:
+						binary, address = self._socket.recvfrom(23)
+						ack = self.parse_segment(binary)
+						if address == self._remote_address and ack.ack == 1 and ack.seq == x:
+							break
+					except socket.timeout:
+						continue
+				x += 1
+				self._seq = x
+		finally:
+			self._socket.settimeout(previous_timeout)
 
 	def recv(self, buff_size: int) -> bytes:
 		# primer mensaje es el largo del mensaje
