@@ -10,26 +10,30 @@ class LossSocket:
     def __init__(self, udp, losses):
         self.udp = udp
         self.losses = losses
+        self.closing = False
 
     def __getattr__(self, name):
         return getattr(self.udp, name)
 
     def sendto(self, data, address):
         packet = SocketTCP.parse_segment(data)
-        if packet.syn == 1:
+        if packet.fin == 1:
+            self.closing = True
+            kind = "fin_ack" if packet.ack else "fin"
+        elif packet.syn == 1:
             kind = "syn_ack" if packet.ack else "syn"
         elif packet.ack == 1:
-            kind = "ack"
+            kind = "close_ack" if self.closing else "ack"
         else:
             kind = "data"
-        if kind in self.losses:
-            self.losses.remove(kind)
+        if self.losses.get(kind, 0) > 0:
+            self.losses[kind] -= 1
             return len(data)  # Simula un paquete enviado que no llega.
         return self.udp.sendto(data, address)
 
 
-def check_loss(kinds):
-    losses = set(kinds)
+def check_loss(kinds, close_from_recv=False):
+    losses = dict(kinds) if isinstance(kinds, dict) else {kind: 1 for kind in kinds}
     real_socket = socket.socket
     sockets = []
 
@@ -52,7 +56,10 @@ def check_loss(kinds):
                 while len(data) < len(message):
                     data += connection.recv(14)
                 assert data == message
-                connection.recv_close()
+                if close_from_recv:
+                    assert connection.recv(16) == b""
+                else:
+                    connection.recv_close()
                 assert connection._socket.fileno() == -1
 
             with ThreadPoolExecutor(max_workers=1) as executor:
@@ -61,7 +68,7 @@ def check_loss(kinds):
                 client.send(message)
                 client.close()
                 receiver.result(timeout=5)
-            assert not losses, losses
+            assert not any(losses.values()), losses
             assert client._socket.fileno() == -1
             print("OK:", ", ".join(kinds) or "sin pérdidas")
     finally:

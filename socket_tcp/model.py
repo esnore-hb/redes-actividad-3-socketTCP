@@ -1,5 +1,6 @@
 import random
 import socket
+import time
 
 
 class PaqueteTCP:
@@ -144,62 +145,71 @@ class SocketTCP:
 		return new_socket, new_socket._local_address
 
 	def close(self):
-		# Host A inicia el cierre con FIN.
 		x = self._seq
-		fin = PaqueteTCP(fin=1, seq=x)
-		self._socket.sendto(self.create_segment(fin), self._remote_address)
+		fin = self.create_segment(PaqueteTCP(fin=1, seq=x))
+		self._socket.settimeout(0.01)
+		try:
+			for attempt in range(3):
+				self._socket.sendto(fin, self._remote_address)
+				try:
+					while True:
+						binary, address = self._socket.recvfrom(23)
+						response = self.parse_segment(binary)
+						if (address == self._remote_address
+							and response.fin == 1 and response.ack == 1
+							and response.syn == 0 and response.seq == x + 1):
+							break
+				except socket.timeout:
+					continue
+				ack = self.create_segment(PaqueteTCP(ack=1, seq=x + 2))
+				self._socket.sendto(ack, self._remote_address)
+				# Tres reenv?os del ACK final, separados por un timeout.
+				for repeat in range(3):
+					time.sleep(0.01)
+					self._socket.sendto(ack, self._remote_address)
+				break
+		finally:
+			# Tambi?n libera el socket si se cumplen los tres timeouts.
+			self._socket.close()
 
-		while True:
-			binary, address = self._socket.recvfrom(23)
-			response = self.parse_segment(binary)
-			if response.ack == 1 and response.syn == 0 and response.fin == 0:
-				continue  # ACK de datos que quedó en la cola.
-			break
-		if not (
-			address == self._remote_address
-			and response.fin == 1 and response.ack == 1
-			and response.syn == 0 and response.seq == x + 1
-		):
-			raise Exception("socket_tcp: no recibí FIN-ACK de cierre")
-
-		ack = PaqueteTCP(ack=1, seq=x + 2)
-		self._socket.sendto(self.create_segment(ack), self._remote_address)
-		self._socket.close()
-
-	def recv_close(self):
-		# Host B espera el FIN y responde con FIN-ACK.
-		while True:
-			binary, address = self._socket.recvfrom(23)
-			fin = self.parse_segment(binary)
-			# Puede quedar un ACK del handshake retransmitido en la cola.
-			if fin.ack == 1 and fin.syn == 0 and fin.fin == 0:
-				continue
-			# Confirma otra vez el último bloque si su ACK llegó tarde o se perdió.
-			if (address == self._remote_address and fin.fin == 0
-				and fin.syn == 0 and fin.seq == self._recv_seq):
-				ack = PaqueteTCP(ack=1, seq=fin.seq)
-				self._socket.sendto(self.create_segment(ack), address)
-				continue
-			break
-		if not (
-			address == self._remote_address
-			and fin.fin == 1 and fin.ack == 0 and fin.syn == 0
-		):
-			raise Exception("socket_tcp: no recibí FIN de cierre")
+	def recv_close(self, fin=None):
+		# Puede recibir el FIN directamente o desde recv().
+		if fin is None:
+			while True:
+				binary, address = self._socket.recvfrom(23)
+				packet = self.parse_segment(binary)
+				if address != self._remote_address:
+					continue
+				if packet.fin == 1 and packet.ack == 0 and packet.syn == 0:
+					fin = packet
+					break
+				if (packet.fin == 0 and packet.ack == 0
+					and packet.syn == 0 and packet.seq == self._recv_seq):
+					ack = PaqueteTCP(ack=1, seq=packet.seq)
+					self._socket.sendto(self.create_segment(ack), address)
 
 		x = fin.seq
-		response = PaqueteTCP(fin=1, ack=1, seq=x + 1)
-		self._socket.sendto(self.create_segment(response), self._remote_address)
-
-		binary, address = self._socket.recvfrom(23)
-		ack = self.parse_segment(binary)
-		if not (
-			address == self._remote_address
-			and ack.ack == 1 and ack.fin == 0 and ack.syn == 0
-			and ack.seq == x + 2
-		):
-			raise Exception("socket_tcp: no recibí ACK final de cierre")
-		self._socket.close()
+		response = self.create_segment(PaqueteTCP(fin=1, ack=1, seq=x + 1))
+		self._socket.settimeout(0.01)
+		try:
+			self._socket.sendto(response, self._remote_address)
+			timeouts = 0
+			while timeouts < 3:
+				try:
+					binary, address = self._socket.recvfrom(23)
+					ack = self.parse_segment(binary)
+					if address != self._remote_address:
+						continue
+					if (ack.ack == 1 and ack.fin == 0 and ack.syn == 0
+						and ack.seq == x + 2):
+						break
+					# Si se perdi? FIN-ACK, el emisor vuelve a enviar FIN.
+					if ack.fin == 1 and ack.ack == 0 and ack.syn == 0 and ack.seq == x:
+						self._socket.sendto(response, address)
+				except socket.timeout:
+					timeouts += 1
+		finally:
+			self._socket.close()
 
 	# --- Funciones del Stop & Wait
 
@@ -244,6 +254,9 @@ class SocketTCP:
 				else:
 					binary, address = self._socket.recvfrom(23)
 				paquete = SocketTCP.parse_segment(binary)
+				if address == self._remote_address and paquete.fin == 1 and paquete.ack == 0:
+					self.recv_close(paquete)
+					return b""
 				if paquete.ack == 1 or paquete.syn == 1:
 					continue
 				ack = PaqueteTCP(ack=1, seq=paquete.seq)
@@ -257,6 +270,9 @@ class SocketTCP:
 		while len(self._recv_buffer) < buff_size and self._recv_remaining > 0:
 			binary, address = self._socket.recvfrom(23)
 			paquete = SocketTCP.parse_segment(binary)
+			if address == self._remote_address and paquete.fin == 1 and paquete.ack == 0:
+				self.recv_close(paquete)
+				break
 			if paquete.ack == 1 or paquete.syn == 1:
 				continue
 
