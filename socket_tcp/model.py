@@ -78,7 +78,7 @@ class SocketTCP:
 		self._remote_address = address
 
 		# --- Paso 1: Cliente envía SYN (seq = x) ---
-		x = random.randint(1, 100)
+		x = random.randint(0, 100)
 		paquete1 = PaqueteTCP(syn=1, seq=x)
 		self._socket.sendto(self.create_segment(paquete1), self._remote_address)
 
@@ -87,7 +87,8 @@ class SocketTCP:
 		paquete2 = self.parse_segment(binary)
 
 		if not (
-			paquete2.syn == 1 and paquete2.ack == 1 and paquete2.seq == x + 1
+			paquete2.syn == 1 and paquete2.ack == 1
+			and paquete2.fin == 0 and paquete2.seq == x + 1
 		):
 			raise Exception("socket_tcp: no hubo saludo de manos (etapa 2)")  # noqa: TRY002
 
@@ -102,7 +103,7 @@ class SocketTCP:
 		binary, client_address = self._socket.recvfrom(23)
 		paquete1 = self.parse_segment(binary)
 
-		if paquete1.syn != 1:
+		if not (paquete1.syn == 1 and paquete1.ack == 0 and paquete1.fin == 0):
 			raise Exception("socket_tcp: no recibí un SYN")  # noqa: TRY002
 
 		x = paquete1.seq
@@ -122,11 +123,13 @@ class SocketTCP:
 		new_socket._socket.sendto(self.create_segment(paquete2), client_address)
 
 		# --- Paso 3: Servidor recibe el ACK final del cliente ---
-		binary2, _ = new_socket._socket.recvfrom(23)
+		binary2, ack_address = new_socket._socket.recvfrom(23)
 		paquete3 = self.parse_segment(binary2)
 
 		if not (
-			paquete3.ack == 1 and paquete3.syn == 0 and paquete3.seq == x + 2
+			ack_address == client_address
+			and paquete3.ack == 1 and paquete3.syn == 0
+			and paquete3.fin == 0 and paquete3.seq == x + 2
 		):
 			raise Exception("socket_tcp: no hubo saludo de manos (etapa 3)")  # noqa: TRY002
 
