@@ -47,6 +47,10 @@ class SocketTCP:
 		self._local_address = None
 		self._remote_address = None
 
+		self._recv_buffer = b""
+		self._recv_remaining = 0
+		self._recv_seq = -1
+
 	@staticmethod
 	def parse_segment(segment_bytes: bytes) -> PaqueteTCP:
 		ack = int.from_bytes(segment_bytes[0:1])
@@ -144,29 +148,38 @@ class SocketTCP:
 		x = random.randint(0, 100)
 		paquete1 = PaqueteTCP(seq=x, body=length_message.to_bytes(4))
 
-	def recv(self, buff_size: int):
-		binary, recieve_address = self._socket.recvfrom(23)
+	def recv(self, buff_size: int) -> bytes:
+		binary, address = self._socket.recvfrom(23)
 		paquete1 = SocketTCP.parse_segment(binary)
 
-		# asumimos que el primer mensaje tiene el largo del mensaje, en bytes
 		length_mensaje = int.from_bytes(paquete1.body)
 		limit = min(length_mensaje, buff_size)
 
 		message_binary = b""
 		actual_seq = paquete1.seq
 
-		# empezamos a recibir todo el resto del mensaje
 		while len(message_binary) < limit:
-			binary, recieve_address = self._socket.recvfrom(23)
+			binary, address = self._socket.recvfrom(23)
 			paquete = SocketTCP.parse_segment(binary)
 
-			if actual_seq + 1 != paquete.seq:
-				continue # el paquete no es la secuencia correcta
-				# repetimos sin cambiar el actual_seq que tenemos
+			# paquete duplicado. nuestro ACK se perdió
+			if paquete.seq == actual_seq:
+				ack = PaqueteTCP(ack=1, seq=actual_seq)
+				self._socket.sendto(SocketTCP.create_segment(ack), address)
+				continue
 
-			self._socket.sendto("Mandar ack", recieve_address)
+			# paquete fuera de orden
+			if paquete.seq != actual_seq + 1:
+				continue
+
+			if len(message_binary) + len(paquete.body) > limit:
+				break
+
 			message_binary += paquete.body
 			actual_seq = paquete.seq
 
-		return message_binary[:limit]
+			ack = PaqueteTCP(ack=1, seq=actual_seq)
+			self._socket.sendto(SocketTCP.create_segment(ack), address)
+
+		return message_binary
 
