@@ -34,7 +34,7 @@ sudo tc qdisc del dev lo root
 
 Los programas principales se ejecutan con `python3 servidor.py` y luego `python3 cliente.py localhost 8000 < archivo.txt`. El cliente recibe el host y el puerto como argumentos y lee los bytes del archivo desde la entrada estándar; el servidor imprime su contenido UTF-8. El servidor escucha en localhost, puerto 8000, y el cliente usa el puerto local 8001.
 
-**Limitación de entrega:** esos programas aún son provisionales: transfieren mediante UDP directo y terminan con un datagrama vacío. Falta conectarlos a `send/recv/close/recv_close`. Las pruebas de confiabilidad corresponden a la clase, no a esos programas.
+El cliente transfiere el archivo mediante `send()` y termina con `close()`. El servidor reconstruye el contenido con llamadas a `recv(16)`; cuando recibe FIN, `recv()` llama internamente a `recv_close()` y devuelve `b""` para finalizar la lectura.
 
 ## Flujo y decisiones de diseño
 

@@ -1,6 +1,6 @@
 import sys
 
-from socket_tcp import PaqueteTCP, SocketTCP
+from socket_tcp import SocketTCP
 
 
 def main():
@@ -16,18 +16,11 @@ def main():
 	# -- seccion crear el socket
 
 	# --- seccion envio del archivo
-	file_splitted = [file[i : (i + 16)] for i in range(0, len(file), 16)]
-	for block in file_splitted:
-		paquete = PaqueteTCP(body=block)
-		client_socket_tcp._socket.sendto(
-			SocketTCP.create_segment(paquete), client_socket_tcp._remote_address
-		)
+	client_socket_tcp.send(file)
 	# --- seccion envio del archivo
 
-	# Señal provisional de fin del archivo, sin cierre TCP todavía.
-	client_socket_tcp._socket.sendto(b"", client_socket_tcp._remote_address)
+	client_socket_tcp.close()
 	print("File sent!")
-	client_socket_tcp._socket.close()
 
 
 if __name__ == "__main__":

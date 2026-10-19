@@ -1,26 +1,17 @@
-import socket
-
 from socket_tcp import SocketTCP
 
 
-def recieve_file(socket: socket.socket):
-	# Extrae los datos de cada segmento y reconstruye el contenido.
-
-	pkg_size = 23 # bytes
-	data = socket.recvfrom(pkg_size)[0]
+def recieve_file(connection: SocketTCP):
+	# recv() reconstruye los datos y procesa el FIN mediante recv_close().
 	contenido = b""
-
 	while True:
-		# Un paquete vacio es el fin de la comunicación
-		if data == b"" : break
-		else:
-			paquete = SocketTCP.parse_segment(data)
-			contenido += paquete.body
-			data = socket.recvfrom(pkg_size)[0]
+		data = connection.recv(16)
+		if data == b"":
+			break
+		contenido += data
 	print(contenido.decode("utf-8"))
 
 	print("[STATUS] file recieve")
-	socket.close()
 
 
 def main():
@@ -34,7 +25,7 @@ def main():
 	connection_socket_tcp, new_address = server_socket_tcp.accept()
 	# --- seccion crear el socket
 
-	recieve_file(connection_socket_tcp._socket)
+	recieve_file(connection_socket_tcp)
 	server_socket_tcp._socket.close()
 
 if __name__ == "__main__":
