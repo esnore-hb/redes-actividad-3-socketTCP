@@ -1,9 +1,12 @@
-from socket_tcp import PaqueteTCP, SocketTCP
+import sys
 
-address = ("localhost", 8000)
+from socket_tcp import PaqueteTCP, SocketTCP
 
 
 def main():
+	address = (sys.argv[1], int(sys.argv[2]))
+	file = sys.stdin.buffer.read()
+
 	print("Se crea socket - Cliente")
 
 	# -- seccion crear el socket
@@ -13,9 +16,6 @@ def main():
 	# -- seccion crear el socket
 
 	# --- seccion envio del archivo
-	filename = input("Ingrese la ruta del archivo > ")
-	with open(filename, "rb") as archivo:
-		file = archivo.read()
 	file_splitted = [file[i : (i + 16)] for i in range(0, len(file), 16)]
 	for block in file_splitted:
 		paquete = PaqueteTCP(body=block)
