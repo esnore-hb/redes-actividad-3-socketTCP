@@ -1,40 +1,22 @@
-# Actividad 3: SocketTCP con Stop & Wait
+﻿# Actividad 3: SocketTCP con Stop & Wait
 
 ## Ejecución
 
-Requiere Python 3.11 o superior, sin dependencias externas. En una terminal de Linux, situarse en la raíz del proyecto:
+Desde la raíz del proyecto, ejecutar en una terminal de Linux:
 
 ```bash
-cd redes-actividad-3-socketTCP
+python3 servidor.py
 ```
 
-Para probar la clase confiable, abrir dos terminales en esa carpeta. En la primera, iniciar el servidor:
+En otra terminal, enviar el archivo:
 
 ```bash
-python3 -m test.server
+python3 cliente.py localhost 8000 < archivo.txt
 ```
 
-En la segunda, ejecutar el cliente:
+Para observar el debug, añadir `--debug` al servidor y, en el cliente, después del puerto y antes de `< archivo.txt`.
 
-```bash
-python3 -m test.client
-```
-
-Las pruebas básicas muestran `Passed` si los mensajes recibidos y el cierre son correctos. Para repetirlas con pérdidas en Linux, activar `netem` antes de iniciar el servidor y el cliente:
-
-```bash
-sudo tc qdisc add dev lo root netem loss 20%
-```
-
-Ejecutar nuevamente los comandos del servidor y del cliente en sus respectivas terminales y comprobar que los mensajes llegan completos y ambos sockets cierran. Al terminar, desactivar las pérdidas:
-
-```bash
-sudo tc qdisc del dev lo root
-```
-
-Los programas principales se ejecutan con `python3 servidor.py` y luego `python3 cliente.py localhost 8000 < archivo.txt`. El cliente recibe el host y el puerto como argumentos y lee los bytes del archivo desde la entrada estándar; el servidor imprime su contenido UTF-8. El servidor escucha en localhost, puerto 8000, y el cliente usa el puerto local 8001.
-
-El cliente transfiere el archivo mediante `send()` y termina con `close()`. El servidor reconstruye el contenido con llamadas a `recv(16)`; cuando recibe FIN, `recv()` llama internamente a `recv_close()` y devuelve `b""` para finalizar la lectura.
+Requiere Python 3.11 o superior, sin dependencias externas. El cliente recibe host y puerto por consola y el contenido del archivo por entrada estándar. Usa `send()` y `close()`; el servidor reconstruye el archivo con `recv(16)`, que procesa el FIN mediante `recv_close()`.
 
 ## Flujo y decisiones de diseño
 
@@ -69,25 +51,17 @@ Cliente: connect()/send()             Servidor: accept()
 
 `send` reconoce el SYN-ACK repetido y reenvía el ACK final. Como alternativa, si llega primero el segmento de longitud con secuencia x+2, `accept` lo considera confirmación y lo guarda para `recv`.
 
-## Pruebas y pendientes
+## Pruebas y resultados
 
-Para activar el debug en Linux, agregar `--debug`. Ejecutar primero el servidor y luego el cliente, en terminales separadas:
+El modo `--debug` muestra envíos, ACK, timeouts, retransmisiones y cierre; se desactiva omitiendo esa opción.
 
-```bash
-python3 servidor.py --debug
-```
+En Ubuntu pasaron las tres pruebas originales, el cierre de ambos sockets y el cierre tras tres timeouts sin respuesta. Se verificó un archivo de 383 bytes sin pérdidas y la reconstrucción exacta de 38 bytes mediante dos llamadas a `recv(19)`.
 
-```bash
-python3 cliente.py localhost 8000 --debug < archivo.txt
-```
+Con `netem` al 20% de pérdidas, siete ejecuciones iniciales terminaron correctamente y otra dejó al servidor esperando. Al repetir el diagnóstico, otras quince ejecuciones pasaron y el caso se reprodujo: el cliente agotó sus tres envíos de FIN sin que el servidor recibiera ninguno.
 
-El debug muestra envíos, ACK, timeouts, retransmisiones y cierre en la salida de error estándar. Para desactivarlo, omitir `--debug`.
+Caso borde del cierre: si se pierden los tres FIN, el cliente cierra tras tres timeouts, pero el servidor sigue esperando el primer FIN. El paso 8 garantiza el cierre del receptor una vez recibido un FIN; no especifica un límite de espera previo. Se conserva este comportamiento para no interrumpir recepciones válidas.
 
-La validación con pérdidas se realizará mediante `netem`, siguiendo los comandos de la sección de ejecución. Queda pendiente ejecutar esta prueba en Linux y registrar sus resultados.
-
-También se comprobó un mensaje de 38 bytes mediante exactamente dos llamadas a `recv(19)`: ambas devolvieron 19 bytes y reconstruyeron el original. Así se cubre el caso solicitado de n no múltiplo de 16.
-
-Caso borde: el buffer conserva bytes sobrantes de un segmento cuando n no es múltiplo de 16. El timeout de 10 ms se eligió para pruebas locales; puede causar retransmisiones innecesarias en redes con mayor retardo.
+Caso borde: el buffer conserva los bytes sobrantes cuando n no es múltiplo de 16. El timeout de 10 ms puede causar retransmisiones innecesarias en redes con mayor retardo.
 
 ## Declaración de IA
 
@@ -95,3 +69,4 @@ Caso borde: el buffer conserva bytes sobrantes de un segmento cuando n no es mú
 - Se usó IA para ajustar la recepción de argumentos por consola en el cliente.
 
 Se utilizó `sys` porque permite acceder a los argumentos y a la entrada estándar: `sys.argv[1]` obtiene el host, `int(sys.argv[2])` obtiene el puerto y `sys.stdin.buffer.read()` lee los bytes del archivo redirigido con `< archivo.txt`.
+
