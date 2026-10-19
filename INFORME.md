@@ -71,7 +71,19 @@ Cliente: connect()/send()             Servidor: accept()
 
 ## Pruebas y pendientes
 
-La validación con pérdidas se realizará mediante `netem`, siguiendo los comandos de la sección de ejecución. Queda pendiente ejecutar esta prueba en Linux y registrar sus resultados; aún falta un modo debug que muestre cómo se manejan las pérdidas, solicitado por el enunciado.
+Para activar el debug en Linux, agregar `--debug`. Ejecutar primero el servidor y luego el cliente, en terminales separadas:
+
+```bash
+python3 servidor.py --debug
+```
+
+```bash
+python3 cliente.py localhost 8000 --debug < archivo.txt
+```
+
+El debug muestra envíos, ACK, timeouts, retransmisiones y cierre en la salida de error estándar. Para desactivarlo, omitir `--debug`.
+
+La validación con pérdidas se realizará mediante `netem`, siguiendo los comandos de la sección de ejecución. Queda pendiente ejecutar esta prueba en Linux y registrar sus resultados.
 
 También se comprobó un mensaje de 38 bytes mediante exactamente dos llamadas a `recv(19)`: ambas devolvieron 19 bytes y reconstruyeron el original. Así se cubre el caso solicitado de n no múltiplo de 16.
 

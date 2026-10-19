@@ -1,5 +1,6 @@
 import random
 import socket
+import sys
 import time
 
 
@@ -44,6 +45,7 @@ class PaqueteTCP:
 
 class SocketTCP:
 	def __init__(self):
+		self.debug = False
 		self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 		self._local_address = None
 		self._remote_address = None
@@ -54,6 +56,10 @@ class SocketTCP:
 		self._recv_seq = -1
 		self._handshake_seq = None
 		self._pending_segment = None
+
+	def _debug(self, message):
+		if self.debug:
+			print(f"[DEBUG {self._local_address}] {message}", file=sys.stderr)
 
 	@staticmethod
 	def parse_segment(segment_bytes: bytes) -> PaqueteTCP:
@@ -90,6 +96,7 @@ class SocketTCP:
 		try:
 			while True:
 				self._socket.sendto(syn, address)
+				self._debug(f"Enviado SYN seq={x}")
 				try:
 					binary, server_address = self._socket.recvfrom(23)
 					response = self.parse_segment(binary)
@@ -97,6 +104,7 @@ class SocketTCP:
 						and response.fin == 0 and response.seq == x + 1):
 						break
 				except socket.timeout:
+					self._debug("Timeout esperando SYN-ACK; se retransmite SYN")
 					continue
 			self._remote_address = server_address
 			self._handshake_seq = x + 2
@@ -115,6 +123,7 @@ class SocketTCP:
 				break
 		x = request.seq
 		new_socket = SocketTCP()
+		new_socket.debug = self.debug
 		new_socket.bind((self._local_address[0], 0))
 		new_socket._remote_address = client_address
 		response = self.create_segment(PaqueteTCP(syn=1, ack=1, seq=x + 1))
@@ -123,6 +132,7 @@ class SocketTCP:
 		try:
 			while True:
 				new_socket._socket.sendto(response, client_address)
+				new_socket._debug(f"Enviado SYN-ACK seq={x + 1}")
 				try:
 					binary, address = new_socket._socket.recvfrom(23)
 					packet = self.parse_segment(binary)
@@ -137,6 +147,7 @@ class SocketTCP:
 						new_socket._pending_segment = (binary, address)
 						break
 				except socket.timeout:
+					new_socket._debug("Timeout esperando ACK del handshake; se retransmite SYN-ACK")
 					continue
 		finally:
 			new_socket._socket.settimeout(previous_timeout)
@@ -151,6 +162,7 @@ class SocketTCP:
 		try:
 			for attempt in range(3):
 				self._socket.sendto(fin, self._remote_address)
+				self._debug(f"Enviado FIN seq={x}, intento {attempt + 1}/3")
 				try:
 					while True:
 						binary, address = self._socket.recvfrom(23)
@@ -160,6 +172,7 @@ class SocketTCP:
 							and response.syn == 0 and response.seq == x + 1):
 							break
 				except socket.timeout:
+					self._debug("Timeout esperando FIN-ACK")
 					continue
 				ack = self.create_segment(PaqueteTCP(ack=1, seq=x + 2))
 				self._socket.sendto(ack, self._remote_address)
@@ -167,10 +180,12 @@ class SocketTCP:
 				for repeat in range(3):
 					time.sleep(0.01)
 					self._socket.sendto(ack, self._remote_address)
+					self._debug(f"Reenvio {repeat + 1}/3 del ACK final seq={x + 2}")
 				break
 		finally:
 			# Tambi?n libera el socket si se cumplen los tres timeouts.
 			self._socket.close()
+			self._debug("Socket cerrado")
 
 	def recv_close(self, fin=None):
 		# Puede recibir el FIN directamente o desde recv().
@@ -193,6 +208,7 @@ class SocketTCP:
 		self._socket.settimeout(0.01)
 		try:
 			self._socket.sendto(response, self._remote_address)
+			self._debug(f"Enviado FIN-ACK seq={x + 1}")
 			timeouts = 0
 			while timeouts < 3:
 				try:
@@ -206,10 +222,13 @@ class SocketTCP:
 					# Si se perdi? FIN-ACK, el emisor vuelve a enviar FIN.
 					if ack.fin == 1 and ack.ack == 0 and ack.syn == 0 and ack.seq == x:
 						self._socket.sendto(response, address)
+						self._debug("FIN repetido; reenviado FIN-ACK")
 				except socket.timeout:
 					timeouts += 1
+					self._debug(f"Timeout esperando ACK final {timeouts}/3")
 		finally:
 			self._socket.close()
+			self._debug("Socket receptor cerrado")
 
 	# --- Funciones del Stop & Wait
 
@@ -225,6 +244,7 @@ class SocketTCP:
 				segment = self.create_segment(PaqueteTCP(seq=x, body=block))
 				while True:
 					self._socket.sendto(segment, self._remote_address)
+					self._debug(f"Enviado segmento seq={x}, {len(block)} bytes")
 					try:
 						binary, address = self._socket.recvfrom(23)
 						ack = self.parse_segment(binary)
@@ -234,10 +254,13 @@ class SocketTCP:
 							and ack.seq == self._handshake_seq - 1):
 							final_ack = PaqueteTCP(ack=1, seq=self._handshake_seq)
 							self._socket.sendto(self.create_segment(final_ack), address)
+							self._debug("SYN-ACK repetido; reenviado ACK del handshake")
 							continue
 						if address == self._remote_address and ack.ack == 1 and ack.seq == x:
+							self._debug(f"Recibido ACK seq={x}")
 							break
 					except socket.timeout:
+						self._debug(f"Timeout esperando ACK seq={x}; se retransmite el segmento")
 						continue
 				x += 1
 				self._seq = x
@@ -278,6 +301,7 @@ class SocketTCP:
 
 			# paquete duplicado. nuestro ACK se perdió
 			if paquete.seq == self._recv_seq:
+				self._debug(f"Segmento duplicado seq={paquete.seq}; se reenvia ACK sin repetir datos")
 				ack = PaqueteTCP(ack=1, seq=paquete.seq)
 				self._socket.sendto(SocketTCP.create_segment(ack), address)
 				continue
@@ -292,6 +316,7 @@ class SocketTCP:
 
 			ack = PaqueteTCP(ack=1, seq=self._recv_seq)
 			self._socket.sendto(SocketTCP.create_segment(ack), address)
+			self._debug(f"Enviado ACK seq={self._recv_seq}")
 
 		# se devuelve a lo mas buff_size, y se guarda el resto,
 		# para la siguiente llamada a recv()

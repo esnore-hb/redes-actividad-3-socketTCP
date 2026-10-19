@@ -11,6 +11,7 @@ def main():
 
 	# -- seccion crear el socket
 	client_socket_tcp = SocketTCP()
+	client_socket_tcp.debug = "--debug" in sys.argv[3:]
 	client_socket_tcp.bind(("localhost", 8001))
 	client_socket_tcp.connect(address)
 	# -- seccion crear el socket

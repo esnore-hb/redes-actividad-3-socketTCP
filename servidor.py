@@ -1,3 +1,5 @@
+import sys
+
 from socket_tcp import SocketTCP
 
 
@@ -21,6 +23,7 @@ def main():
 
 	# --- seccion crear el socket
 	server_socket_tcp = SocketTCP()
+	server_socket_tcp.debug = "--debug" in sys.argv[1:]
 	server_socket_tcp.bind(new_socket_address)
 	connection_socket_tcp, new_address = server_socket_tcp.accept()
 	# --- seccion crear el socket
