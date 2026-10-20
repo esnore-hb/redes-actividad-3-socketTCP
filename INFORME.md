@@ -67,6 +67,7 @@ Caso borde: el buffer conserva los bytes sobrantes cuando n no es múltiplo de 1
 
 - Se usó la IA para poder saber manipular bytes en Python.
 - Se usó IA para ajustar la recepción de argumentos por consola en el cliente.
+- Se usó IA para destrabar errores durante las pruebas y analizar sus causas.
 
 Se utilizó `sys` porque permite acceder a los argumentos y a la entrada estándar: `sys.argv[1]` obtiene el host, `int(sys.argv[2])` obtiene el puerto y `sys.stdin.buffer.read()` lee los bytes del archivo redirigido con `< archivo.txt`.
 
