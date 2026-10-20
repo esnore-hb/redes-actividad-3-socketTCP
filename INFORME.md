@@ -42,24 +42,11 @@ El encabezado contiene ACK, SYN y FIN de 1 byte cada uno, más SEQ de 4 bytes, e
 
 ### Diagrama del handshake
 
-```text
-Cliente: connect()                    Servidor: accept()
-   | -------- SYN, seq=x -----------> | socket de escucha
-   | <------ SYN-ACK, seq=x+1 -------- | nuevo socket/puerto
-   | -------- ACK, seq=x+2 ---------> | nuevo socket
-   |          conexión lista         |
-```
+![Diagrama del handshake hecho a mano](esquema.jpg)
 
 ### Pérdida del último ACK
 
-```text
-Cliente: connect()/send()             Servidor: accept()
-   | <------ SYN-ACK, seq=x+1 -------- |
-   | ---- ACK, seq=x+2 ---- X          | ACK perdido
-   |                                  | timeout
-   | <------ SYN-ACK, seq=x+1 -------- | retransmisión
-   | -------- ACK, seq=x+2 ---------> | conexión lista
-```
+![Diagrama de pérdida del último ACK](diagrama_ack_perdido.jpeg)
 
 `send` reconoce el SYN-ACK repetido y reenvía el ACK final. Como alternativa, si llega primero el segmento de longitud con secuencia x+2, `accept` lo considera confirmación y lo guarda para `recv`.
 
@@ -82,5 +69,8 @@ Caso borde: el buffer conserva los bytes sobrantes cuando n no es múltiplo de 1
 - Se usó IA para destrabar errores durante las pruebas y analizar sus causas.
 
 Se utilizó `sys` porque permite acceder a los argumentos y a la entrada estándar: `sys.argv[1]` obtiene el host, `int(sys.argv[2])` obtiene el puerto y `sys.stdin.buffer.read()` lee los bytes del archivo redirigido con `< archivo.txt`.
+
+
+
 
 
